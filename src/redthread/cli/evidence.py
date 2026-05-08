@@ -13,6 +13,7 @@ from redthread.reporting import (
     build_competitive_demo_from_files,
     campaign_candidates_from_external_evidence,
     compare_hero_proof_files,
+    import_adopt_redthread_intent_evidence_file,
     import_external_evidence_file,
     write_adaptive_ab_report,
     write_competitive_demo_artifact,
@@ -42,6 +43,20 @@ def register_evidence_commands(main: click.Group, console: Console) -> None:
             f"Imported {len(bundle.items)} weak evidence item(s) to {output}. "
             "Evidence mode: weak_imported_evidence. No scores, findings, regression cases, "
             "defenses, or promotion claims were created."
+        )
+
+    @evidence.command("import-adopt-redthread")
+    @click.option("--input", "input_file", type=click.Path(exists=True, dir_okay=False), required=True)
+    @click.option("--output", type=click.Path(dir_okay=False), default="adopt-redthread-evidence.json", show_default=True)
+    def import_adopt_redthread_command(input_file: str, output: str) -> None:
+        """Import adopt-redthread intent evidence as weak RedThread evidence."""
+        bundle = import_adopt_redthread_intent_evidence_file(Path(input_file), output_path=Path(output))
+        seed_count = sum(1 for item in bundle.items if item.candidate_probe_seed is not None)
+        console.print(
+            f"Imported {len(bundle.items)} adopt-redthread weak evidence item(s) to {output}; "
+            f"{seed_count} candidate probe seed(s) available. Evidence mode: weak_imported_evidence. "
+            "No scores, findings, regression cases, defenses, or promotion claims were created. "
+            "JudgeAgent confirmation is still required."
         )
 
     @evidence.command("plan")

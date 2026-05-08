@@ -26,6 +26,7 @@ class ExternalEvidenceSource(str, Enum):
     GARAK = "garak"
     STRIX = "strix"
     GENERIC = "generic"
+    ADOPT_REDTHREAD = "adopt-redthread"
 
 
 class CandidateProbeSeed(BaseModel):

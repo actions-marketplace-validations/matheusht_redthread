@@ -5,6 +5,10 @@ from redthread.reporting.adaptive_ab import (
     compare_hero_proof_files,
     write_adaptive_ab_report,
 )
+from redthread.reporting.adopt_redthread_import import (
+    adopt_redthread_intent_evidence_from_payload,
+    import_adopt_redthread_intent_evidence_file,
+)
 from redthread.reporting.artifacts import build_operator_artifact_bundle
 from redthread.reporting.competitive_demo import (
     build_competitive_demo_artifact,
@@ -88,8 +92,10 @@ __all__ = [
     "compare_hero_proof_files",
     "evidence_label_summary",
     "external_evidence_bundle",
+    "adopt_redthread_intent_evidence_from_payload",
     "external_evidence_from_payload",
     "garak_result_to_evidence",
+    "import_adopt_redthread_intent_evidence_file",
     "import_external_evidence_file",
     "normalize_evidence_label",
     "operator_artifacts_to_json",
