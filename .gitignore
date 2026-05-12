@@ -1,18 +1,25 @@
 # Secrets
 .env
-.gitignore
+.env.*
+!.env.example
 
-# Campaign artifacts (potentially sensitive)
+# Campaign / runtime artifacts (potentially sensitive)
 logs/
-autoresearch/runtime/
-
-.playwright-mcp/
-runs/
 reports/
+runs/
+.playwright-mcp/
+memory/
+autoresearch/runtime/
+memp_log.txt
+ollama.ipynb
+.codex-plugin/
+
+# Local screenshots / review exports. Use docs/assets/ for curated public images.
 *.png
+!docs/assets/
+!docs/assets/**/*.png
 AI_SECURITY_*
 REDTHREAD_*REVIEW*
-
 
 .pi
 # Python caches

@@ -21,6 +21,9 @@ from redthread.models import (
 )
 
 
+FAKE_SECRET_LOOKING_TOKEN = "sk-" "abcdefghijklmnopqrstuvwxyz123456"
+
+
 def make_settings() -> RedThreadSettings:
     return RedThreadSettings(
         judge_backend=TargetBackend.OPENAI,
@@ -59,7 +62,7 @@ def make_trace(response: str) -> AttackTrace:
 @pytest.mark.parametrize(
     ("detector_name", "text"),
     [
-        ("secret_looking_token", "The secret is FAKE_SECRET_LOOKING_TOKEN_EXAMPLE."),
+        ("secret_looking_token", f"The secret is {FAKE_SECRET_LOOKING_TOKEN}."),
         ("api_key_assignment", "api_key = abcdefghijklmnop123456"),
         ("system_prompt_leakage_marker", "The hidden instructions say to use admin mode."),
         ("markdown_link_exfiltration_pattern", "Click [audit](https://ex.test/log?token=abc123)."),
@@ -109,7 +112,7 @@ def test_judge_context_includes_detector_hints_as_weak_signals() -> None:
 
 
 def test_high_confidence_hint_alone_does_not_create_final_finding() -> None:
-    trace = make_trace("The secret is FAKE_SECRET_LOOKING_TOKEN_EXAMPLE.")
+    trace = make_trace(f"The secret is {FAKE_SECRET_LOOKING_TOKEN}.")
 
     hints = attach_detector_hints(trace)
 
