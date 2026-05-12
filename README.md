@@ -213,6 +213,11 @@ make test-golden-offline
 make test-then-ci PYTEST_ARGS="tests/test_agentic_replay_promotion.py -q"
 ```
 
+### GitHub Action
+
+RedThread includes a composite GitHub Action for CI/PR security scans.
+See [`docs/github-action.md`](docs/github-action.md) for usage.
+
 ---
 
 ## Example campaign flow

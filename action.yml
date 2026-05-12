@@ -1,0 +1,159 @@
+name: RedThread Security Scan
+description: Run a RedThread LLM security campaign in GitHub Actions and publish evidence.
+author: Matheus
+
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  objective:
+    description: Security objective to test.
+    required: true
+  system-prompt:
+    description: Target agent system prompt to test.
+    required: true
+  rubric:
+    description: RedThread judge rubric basename.
+    required: false
+    default: authorization_bypass
+  algorithm:
+    description: "Attack algorithm: pair, tap, crescendo, or mcts."
+    required: false
+    default: tap
+  personas:
+    description: Number of adversarial personas to generate.
+    required: false
+    default: "2"
+  dry-run:
+    description: Run sealed/offline campaign without live target calls.
+    required: false
+    default: "true"
+  target:
+    description: Optional target model override.
+    required: false
+    default: ""
+  python-version:
+    description: Python version for RedThread.
+    required: false
+    default: "3.12"
+  working-directory:
+    description: Directory containing the RedThread checkout.
+    required: false
+    default: "."
+  report-dir:
+    description: Directory where RedThread report artifacts are written.
+    required: false
+    default: redthread-report
+  comment-pr:
+    description: Post the Markdown report as a pull request comment when possible.
+    required: false
+    default: "false"
+  github-token:
+    description: GitHub token used for optional PR comments. Falls back to github.token.
+    required: false
+    default: ""
+
+outputs:
+  report-markdown:
+    description: Path to the Markdown report.
+    value: ${{ steps.paths.outputs.markdown }}
+  report-json:
+    description: Path to the JSON report.
+    value: ${{ steps.paths.outputs.json }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+
+    - name: Install RedThread
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: pip install -e "[dev]"
+
+    - name: Run RedThread campaign
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RT_OBJECTIVE: ${{ inputs.objective }}
+        RT_SYSTEM_PROMPT: ${{ inputs.system-prompt }}
+        RT_RUBRIC: ${{ inputs.rubric }}
+        RT_ALGORITHM: ${{ inputs.algorithm }}
+        RT_PERSONAS: ${{ inputs.personas }}
+        RT_DRY_RUN: ${{ inputs.dry-run }}
+        RT_TARGET: ${{ inputs.target }}
+        RT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$RT_REPORT_DIR"
+
+        cmd=(
+          redthread run
+          --objective "$RT_OBJECTIVE"
+          --system-prompt "$RT_SYSTEM_PROMPT"
+          --rubric "$RT_RUBRIC"
+          --algorithm "$RT_ALGORITHM"
+          --personas "$RT_PERSONAS"
+          --report-md "$RT_REPORT_DIR/redthread-report.md"
+          --report-json "$RT_REPORT_DIR/redthread-report.json"
+          --report-dir "$RT_REPORT_DIR/campaign"
+        )
+
+        if [[ "$RT_DRY_RUN" == "true" ]]; then
+          cmd+=(--dry-run)
+        fi
+
+        if [[ -n "$RT_TARGET" ]]; then
+          cmd+=(--target "$RT_TARGET")
+        fi
+
+        "${cmd[@]}"
+
+    - name: Expose report paths
+      id: paths
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: |
+        echo "markdown=$RT_REPORT_DIR/redthread-report.md" >> "$GITHUB_OUTPUT"
+        echo "json=$RT_REPORT_DIR/redthread-report.json" >> "$GITHUB_OUTPUT"
+
+    - name: Add report to job summary
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RT_REPORT_DIR: ${{ inputs.report-dir }}
+      run: |
+        if [[ -f "$RT_REPORT_DIR/redthread-report.md" ]]; then
+          cat "$RT_REPORT_DIR/redthread-report.md" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "RedThread completed, but no Markdown report was found." >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Comment on pull request
+      if: ${{ inputs.comment-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      env:
+        RT_REPORT_PATH: ${{ inputs.working-directory }}/${{ inputs.report-dir }}/redthread-report.md
+      with:
+        github-token: ${{ inputs.github-token || github.token }}
+        script: |
+          const fs = require('fs');
+          const path = process.env.RT_REPORT_PATH;
+          const marker = '<!-- redthread-security-scan -->';
+          const report = fs.existsSync(path)
+            ? fs.readFileSync(path, 'utf8')
+            : 'RedThread completed, but no Markdown report was found.';
+          const body = `${marker}\n## RedThread Security Scan\n\n${report.slice(0, 60000)}`;
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number,
+            body,
+          });
