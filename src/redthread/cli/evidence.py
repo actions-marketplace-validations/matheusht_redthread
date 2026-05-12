@@ -39,7 +39,7 @@ def register_evidence_commands(main: click.Group, console: Console) -> None:
             source=ExternalEvidenceSource(source),
             output_path=Path(output),
         )
-        console.print(
+        click.echo(
             f"Imported {len(bundle.items)} weak evidence item(s) to {output}. "
             "Evidence mode: weak_imported_evidence. No scores, findings, regression cases, "
             "defenses, or promotion claims were created."

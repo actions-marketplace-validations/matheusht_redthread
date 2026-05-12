@@ -12,6 +12,7 @@ from redthread.cli import main
 from redthread.reporting import (
     ExternalEvidenceSource,
     adopt_redthread_intent_evidence_from_payload,
+    adopt_redthread_pentest_context_from_payload,
     campaign_candidates_from_external_evidence,
 )
 
@@ -86,6 +87,64 @@ def test_native_import_maps_intent_evidence_to_weak_external_bundle() -> None:
     assert candidates.evidence_mode == "weak_imported_evidence"
     assert candidates.creates_regression_case is False
     assert candidates.probe_seeds[0].source_id == "step_001"
+
+
+def _pentest_context_package() -> dict[str, object]:
+    return {
+        "schema_version": "adopt_redthread.pentest_context_package.v0",
+        "source": {"tool": "adopt-redthread", "raw_artifacts_included": False},
+        "privacy": {
+            "sanitized": True,
+            "raw_har_included": False,
+            "raw_urls_included": False,
+            "raw_headers_included": False,
+            "raw_cookies_included": False,
+            "raw_bodies_included": False,
+            "raw_ids_included": False,
+            "auth_values_included": False,
+            "secrets_included": False,
+        },
+        "safety_policy": {
+            "default_live_execution_allowed": False,
+            "judge_agent_required": True,
+        },
+        "attack_surface_hypotheses": [
+            {
+                "hypothesis_id": "hypothesis_001",
+                "subject_id": "subject_001",
+                "category": "authorization_boundary",
+                "summary": "sanitized authorization-boundary context for downstream planning",
+                "not_a_finding": True,
+                "requires_judge_confirmation": True,
+                "evidence_ids": ["ev_001"],
+                "missing_context": ["approved role matrix"],
+            }
+        ],
+    }
+
+
+def test_native_import_maps_pentest_context_package_to_candidate_seed() -> None:
+    bundle = adopt_redthread_pentest_context_from_payload(_pentest_context_package())
+
+    assert bundle.source == ExternalEvidenceSource.ADOPT_REDTHREAD
+    assert bundle.evidence_mode == "weak_imported_evidence"
+    assert bundle.promotion_impact == "none"
+    assert len(bundle.items) == 1
+    assert bundle.items[0].candidate_probe_seed is not None
+    assert bundle.items[0].requires_judge_confirmation is True
+    assert bundle.items[0].is_confirmed_finding is False
+
+    candidates = campaign_candidates_from_external_evidence(bundle)
+    assert len(candidates.probe_seeds) == 1
+    assert candidates.creates_regression_case is False
+
+
+def test_native_import_rejects_pentest_context_live_execution_authorization() -> None:
+    package = _pentest_context_package()
+    package["safety_policy"]["default_live_execution_allowed"] = True  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="cannot authorize live execution"):
+        adopt_redthread_pentest_context_from_payload(package)
 
 
 def test_native_import_rejects_live_execution_step() -> None:
