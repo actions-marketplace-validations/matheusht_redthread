@@ -6,6 +6,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from redthread.research.source_mutation_artifacts import apply_patch_payload, matches_payload
 from redthread.research.source_mutation_models import PatchFileArtifact, SourceMutationCandidate
 from redthread.research.source_mutation_revert import load_manifest, matches_fingerprints
 
@@ -43,8 +44,7 @@ def apply_candidate(
     manifest = load_manifest(candidate.patch_manifest_path)
     if not matches_fingerprints(root, manifest.before_fingerprints, hash_fn):
         raise RuntimeError("Cannot resume source mutation because the workspace no longer matches the candidate baseline.")
-    for item in _load_patch(candidate.forward_patch_path):
-        (root / item.path).write_text(item.content, encoding="utf-8")
+    apply_patch_payload(root, _load_patch(candidate.forward_patch_path))
     candidate.apply_status = "applied"
     Path(root / "autoresearch" / "runtime" / "mutations" / candidate.candidate_id / "candidate.json").write_text(
         candidate.model_dump_json(indent=2),
@@ -54,7 +54,7 @@ def apply_candidate(
 
 
 def _matches_payload(root: Path, payload: list[PatchFileArtifact]) -> bool:
-    return all((root / item.path).exists() and (root / item.path).read_text(encoding="utf-8") == item.content for item in payload)
+    return matches_payload(root, payload)
 
 
 def _load_patch(path_str: str) -> list[PatchFileArtifact]:
