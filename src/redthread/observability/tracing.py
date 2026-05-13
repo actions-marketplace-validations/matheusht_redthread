@@ -90,7 +90,7 @@ def traced[F: Callable[..., Any]](func: F) -> F:
             return await func(*args, **kwargs)
 
         try:
-            from langsmith import traceable  # type: ignore[import-untyped]
+            from langsmith import traceable
             traced_func = traceable(name=func.__qualname__)(func)
             return await traced_func(*args, **kwargs)
         except ImportError:
