@@ -74,7 +74,7 @@ runs:
     - name: Install RedThread
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: pip install -e "[dev]"
+      run: pip install -e ".[dev]"
 
     - name: Run RedThread campaign
       shell: bash
