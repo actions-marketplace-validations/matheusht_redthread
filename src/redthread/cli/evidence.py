@@ -80,7 +80,7 @@ def register_evidence_commands(main: click.Group, console: Console) -> None:
         output_path = Path(output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(prompt_safe_json(candidates.model_dump(mode="json")), encoding="utf-8")
-        console.print(
+        click.echo(
             f"Wrote {len(candidates.probe_seeds)} candidate probe seed(s) to {output}. "
             "Evidence mode: weak_imported_evidence; JudgeAgent confirmation is still required."
         )
