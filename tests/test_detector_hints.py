@@ -20,7 +20,6 @@ from redthread.models import (
     PsychologicalTrigger,
 )
 
-
 FAKE_SECRET_LOOKING_TOKEN = "sk-" "abcdefghijklmnopqrstuvwxyz123456"
 
 

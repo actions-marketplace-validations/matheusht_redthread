@@ -19,16 +19,31 @@ def load_patch(path_str: str) -> list[PatchFileArtifact]:
     return [PatchFileArtifact.model_validate(item) for item in payload["files"]]
 
 
+def resolve_patch_path(root: Path, artifact_path: str) -> Path:
+    """Resolve one patch artifact path within the workspace."""
+    raw_path = Path(artifact_path)
+    if not artifact_path.strip() or raw_path.is_absolute():
+        raise ValueError(f"Patch path must be workspace-relative: {artifact_path}")
+
+    workspace_root = root.resolve()
+    resolved = (workspace_root / raw_path).resolve()
+    try:
+        resolved.relative_to(workspace_root)
+    except ValueError as exc:
+        raise ValueError(f"Patch path escapes workspace: {artifact_path}") from exc
+    return resolved
+
+
 def apply_patch_payload(root: Path, payload: list[PatchFileArtifact]) -> None:
     """Write one patch payload into the workspace."""
     for item in payload:
-        (root / item.path).write_text(item.content, encoding="utf-8")
+        resolve_patch_path(root, item.path).write_text(item.content, encoding="utf-8")
 
 
 def matches_payload(root: Path, payload: list[PatchFileArtifact]) -> bool:
     """Return True when the workspace already matches the stored payload."""
     for item in payload:
-        path = root / item.path
+        path = resolve_patch_path(root, item.path)
         if not path.exists() or path.read_text(encoding="utf-8") != item.content:
             return False
     return True
@@ -66,8 +81,10 @@ def write_reasoning(path: Path, title: str, rationale: str, metric_goal: str) ->
 
 def patch_file(root: Path, path: Path, content: str) -> PatchFileArtifact:
     """Build a file artifact for one target path."""
+    workspace_root = root.resolve()
+    resolved = path.resolve()
     return PatchFileArtifact(
-        path=path.relative_to(root).as_posix(),
+        path=resolved.relative_to(workspace_root).as_posix(),
         content=content,
         sha256=sha256(content),
     )

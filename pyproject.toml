@@ -113,4 +113,5 @@ ignore_errors = true
 # ── Pytest ───────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["src"]
 testpaths = ["tests"]
