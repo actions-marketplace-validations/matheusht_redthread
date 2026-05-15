@@ -232,6 +232,14 @@ It can answer:
 
 That is why RedThread stores transcripts, runtime summaries, replay evidence, and promotion decisions as separate operator-facing artifacts.
 
+## Example campaign result
+
+![RedThread campaign result showing failure, partial, and success outcomes](docs/assets/example-campaign-result.png)
+
+Example local campaign output. One attack succeeded, one partially succeeded, and one failed. RedThread treats these as evidence signals for review, not as proof that a whole model or app is unsafe.
+
+This run was confirmed by local judge scoring in that campaign context. The screenshot redacts the transcript path; publishable evidence should use sanitized transcripts or scoped reports, not raw runtime logs.
+
 ---
 
 ## Safety model
