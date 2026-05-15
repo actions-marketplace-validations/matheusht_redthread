@@ -1,5 +1,12 @@
 # Wiki Log
 
+## [2026-05-15] decision | archived failed heuristics A/B experiment
+- created `decisions/heuristics-ab-experiment-no-merge.md`
+- recorded that the valid A/B proof favored baseline over hidden hand-written routing heuristics
+- decided not to merge or enable heuristic routing behavior by default
+- preserved the evidence boundary: weak heuristics may guide exploration only; JudgeAgent and replay gates remain truth surfaces
+- updated `docs/wiki/index.md`
+
 ## [2026-05-04] test-docs | recorded material workflow smoke proof
 - updated `decisions/jailbreak-benchmark-material-vault.md` test guidance to include `tests/test_benchmark_material_workflow_smoke.py`
 - captured the end-to-end proof for import → ready command listing → sealed local replay → prompt-safe report
