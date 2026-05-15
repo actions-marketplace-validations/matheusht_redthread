@@ -402,7 +402,7 @@ Do not commit:
 - local operator artifacts,
 - screenshots containing private information.
 
-If you plan to publish this repository, review tracked files, ignored files, and git history first.
+If you plan to publish this repository, please review tracked files, ignored files, and git history first.
 
 ---
 
