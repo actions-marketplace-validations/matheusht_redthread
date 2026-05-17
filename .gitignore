@@ -5,6 +5,7 @@
 
 CODEX.md
 *.html
+.gitignore
 
 # Campaign / runtime artifacts (potentially sensitive)
 logs/
