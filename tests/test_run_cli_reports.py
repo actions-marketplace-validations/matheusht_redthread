@@ -25,6 +25,7 @@ def _patch_fake_engine(monkeypatch: Any, runtime_mode: str = "live_provider") ->
 
 def test_run_writes_default_report_directory(monkeypatch: Any, tmp_path: Path) -> None:
     _patch_fake_engine(monkeypatch)
+    monkeypatch.setenv("REDTHREAD_DRY_RUN", "false")
     runner = CliRunner()
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -61,6 +62,7 @@ def test_run_writes_default_dry_run_report_subdirectory(
 
 def test_run_report_dir_overrides_default_root(monkeypatch: Any, tmp_path: Path) -> None:
     _patch_fake_engine(monkeypatch)
+    monkeypatch.setenv("REDTHREAD_DRY_RUN", "false")
     runner = CliRunner()
 
     with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -75,6 +77,7 @@ def test_run_report_dir_overrides_default_root(monkeypatch: Any, tmp_path: Path)
 
 def test_run_keeps_direct_report_exports(monkeypatch: Any, tmp_path: Path) -> None:
     _patch_fake_engine(monkeypatch)
+    monkeypatch.setenv("REDTHREAD_DRY_RUN", "false")
     runner = CliRunner()
 
     with runner.isolated_filesystem(temp_dir=tmp_path):

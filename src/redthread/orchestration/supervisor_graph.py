@@ -18,7 +18,7 @@ from redthread.orchestration.supervisor_routing import fan_out_attack_workers, r
 from redthread.orchestration.supervisor_state import SupervisorState
 
 
-async def attack_worker_node(state: dict[str, Any]) -> dict[str, Any]:
+async def attack_worker_node(state: Any) -> dict[str, Any]:
     """Adapter wrapping run_attack_worker for LangGraph node registration."""
     from redthread.orchestration.graphs.attack_graph import run_attack_worker
 
@@ -26,7 +26,7 @@ async def attack_worker_node(state: dict[str, Any]) -> dict[str, Any]:
     return {"attack_results": [result]}
 
 
-def build_supervisor_graph() -> StateGraph:
+def build_supervisor_graph() -> StateGraph[SupervisorState]:
     """Construct the LangGraph supervisor StateGraph."""
     graph = StateGraph(SupervisorState)
     graph.add_node("generate_personas", generate_personas_node)

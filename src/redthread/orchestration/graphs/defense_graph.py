@@ -36,7 +36,7 @@ class DefenseWorkerState(TypedDict):
 
 # ── Worker node function ──────────────────────────────────────────────────────
 
-async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
+async def run_defense_worker(state: DefenseWorkerState) -> dict[str, Any]:
     """Run defense synthesis and index validated candidates, not active controls.
 
     Called by the LangGraph supervisor only for confirmed jailbreaks.

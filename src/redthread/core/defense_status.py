@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Final
 
 CANDIDATE_DEFENSE: Final = "candidate_defense"
@@ -28,7 +29,7 @@ def validated_candidate(record: dict[str, Any]) -> bool:
     return bool(record.get(VALIDATED_CANDIDATE, record.get(DEFENSE_DEPLOYED_ALIAS)))
 
 
-def validated_candidate_count(state: dict[str, Any]) -> int:
+def validated_candidate_count(state: Mapping[str, Any]) -> int:
     """Read canonical supervisor count with legacy fallback."""
     return int(state.get(DEFENSE_VALIDATED_CANDIDATES, state.get(DEFENSE_DEPLOYMENTS_ALIAS, 0)))
 

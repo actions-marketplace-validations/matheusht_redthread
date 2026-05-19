@@ -94,10 +94,12 @@ async def judge_all_results_node(state: SupervisorState) -> dict[str, Any]:
             "final_score": 0.0,
             "error": None,
         })
-        if output.get("judged_result_dict"):
-            judged.append(output["judged_result_dict"])
-        if output.get("error"):
-            errors.append(output["error"])
+        judged_result = output.get("judged_result_dict")
+        if judged_result is not None:
+            judged.append(judged_result)
+        error_msg = output.get("error")
+        if error_msg is not None:
+            errors.append(error_msg)
             failures += 1
     return {
         "judged_results": judged,
@@ -144,7 +146,8 @@ async def defense_synthesis_node(state: SupervisorState) -> dict[str, Any]:
         output = await run_defense_worker({
             "settings_dict": state["settings_dict"],
             "result_dict": result_dict,
-            **candidate_flags(False),
+            "validated_candidate": False,
+            "defense_deployed": False,
             "guardrail_clause": None,
             "error": None,
         })
@@ -157,8 +160,9 @@ async def defense_synthesis_node(state: SupervisorState) -> dict[str, Any]:
         records.append(record)
         if validated:
             indexed_candidates += 1
-        if output.get("error"):
-            errors.append(output["error"])
+        error_msg = output.get("error")
+        if error_msg is not None:
+            errors.append(error_msg)
             failures += 1
     return {
         "defense_records": records,

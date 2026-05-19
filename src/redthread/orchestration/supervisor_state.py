@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from typing_extensions import TypedDict
 
 
-def merge_lists(a: list, b: list) -> list:
+def merge_lists(a: list[Any], b: list[Any]) -> list[Any]:
     """LangGraph reducer for fan-in list fields."""
     return a + b
 

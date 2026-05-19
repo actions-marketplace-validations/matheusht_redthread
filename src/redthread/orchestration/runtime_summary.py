@@ -1,5 +1,6 @@
 """Runtime summary helpers for orchestration truth surfaces."""
 
+from collections.abc import Mapping
 from typing import Any
 
 from redthread.core.defense_status import (
@@ -12,7 +13,7 @@ from redthread.orchestration.canary_flow import CanaryPropagationReport
 RuntimeSummary = dict[str, Any]
 
 
-def _build_agentic_security_summary(state: dict[str, Any]) -> dict[str, Any]:
+def _build_agentic_security_summary(state: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "action_total": state.get("agentic_action_total", 0),
         "authorization_decision_counts": state.get("authorization_decision_counts", {}),
@@ -84,7 +85,7 @@ def merge_live_canary_report(summary: RuntimeSummary, execution_records: list[An
     return merged
 
 
-def build_runtime_summary(state: dict[str, Any]) -> RuntimeSummary:
+def build_runtime_summary(state: Mapping[str, Any]) -> RuntimeSummary:
     """Build a compact operator-facing runtime summary from supervisor state."""
     attack_worker_total = state.get("attack_worker_total", 0)
     attack_worker_failures = state.get("attack_worker_failures", 0)

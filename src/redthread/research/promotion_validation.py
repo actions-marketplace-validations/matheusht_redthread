@@ -29,7 +29,7 @@ def build_promotion_validation(
         and control.average_asr <= float(manifest.revalidation_policy["control_max_average_asr"])
         and control.average_score <= float(manifest.revalidation_policy["control_max_average_score"])
     )
-    lane_names = {item.lane for item in proposal.cycle.lane_summaries}
+    lane_names = {item.lane for item in proposal.cycle.lane_summaries if item.lane is not None}
     records = eligible_records(settings, workspace, proposal)
     evidence_summary = summarize_promotion_records(records)
     status, failure_reason = _validation_status(
