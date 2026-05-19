@@ -10,7 +10,7 @@ from redthread.core.defense_models import DeploymentRecord
 
 @dataclass
 class DefenseUtilityGateResult:
-    """Structured promotability verdict for one defense deployment record."""
+    """Structured promotability verdict for one defense candidate record."""
 
     trace_id: str
     passed: bool
@@ -18,7 +18,7 @@ class DefenseUtilityGateResult:
 
 
 def evaluate_defense_record(record: DeploymentRecord) -> DefenseUtilityGateResult:
-    """Require strong, promotable evidence for a defense deployment record."""
+    """Require strong, promotable evidence for a defense candidate record."""
     failed_checks: list[str] = []
     validation = record.validation
 

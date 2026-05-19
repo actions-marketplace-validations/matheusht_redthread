@@ -15,7 +15,7 @@ It does three things no other tool on the market does simultaneously, and it is 
 
 1. **Automated, algorithmic adversarial attack generation** — using PAIR, TAP, Crescendo, and GS-MCTS to generate and execute attacks that are search-optimized, not manually written.
 2. **Precision evaluation** — replacing subjective human scoring with probability-weighted, float-precision JudgeAgent scoring powered by Prometheus 2 and G-Eval.
-3. **Defense synthesis with validation evidence** — converting successful exploit traces into candidate semantic guardrails, validating them in sandbox/replay paths, and producing scoped promotion evidence. This is not broad autonomous production enforcement.
+3. **Defense synthesis with validation evidence** — converting successful exploit traces into candidate semantic guardrails, validating them in sandbox/replay paths, and producing scoped promotion evidence. A validated candidate is not an active guardrail until explicitly promoted. This is not broad autonomous production enforcement.
 4. **Safe autoresearch** — bounded source-code mutation over offensive and defense-prompt surfaces, evaluated on dedicated research branches with explicit accept/reject and promotion gates.
 
 RedThread uses **PyRIT** (Python Risk Identification Toolkit) as its foundational plumbing layer for target interaction, orchestration loops, and payload conversion — while keeping all proprietary intelligence (search algorithms, defense synthesis, evaluation logic) in its own codebase.
@@ -73,7 +73,7 @@ An engineering team is about to deploy a multi-agent customer service assistant.
 A developer updates a system prompt to make an agent "more helpful." RedThread, triggered via a CI hook, runs its baseline attack suite against the new build. The JudgeAgent calculates that resistance to "Authority Impersonation" has degraded by 40% — the build fails before the prompt reaches production.
 
 ### Use Case 3: Guardrail Synthesis With Promotion Evidence (The Defense Loop)
-A TAP attack successfully bypasses a staging agent's defenses using a novel prompt injection. Instead of merely logging the failure, RedThread's Defense Synthesis Engine isolates the exact conversational pivot, generates a semantic blocking policy, validates it in sandbox/replay paths, and emits promotion-ready evidence. The original exploit becomes a regression case; broader production use still requires the explicit promotion or controlled live-adapter path.
+A TAP attack successfully bypasses a staging agent's defenses using a novel prompt injection. Instead of merely logging the failure, RedThread's Defense Synthesis Engine isolates the exact conversational pivot, generates a semantic blocking policy, validates it in sandbox/replay paths, and emits scoped promotion evidence. The original exploit becomes a regression case; broader production use still requires explicit promotion or a controlled live-adapter path. Operator reports distinguish `candidate_defense`, `validated_candidate`, `promotable_defense`, and `active_guardrail` states.
 
 ---
 
@@ -90,6 +90,7 @@ A TAP attack successfully bypasses a staging agent's defenses using a novel prom
 
 ## 6. What RedThread Is NOT
 
+- **Not a manual artifact hunt** — `redthread run` writes a standard report directory by default, with evidence labels, counts, and uncertainty notes before debug sidecars.
 - **Not a web UI tool** — it's a CLI engine, like Claude Code. UI comes later.
 - **Not coupled to Adopt AI** — Phase 1 is fully standalone. Enterprise integrations (ZAPI, Widdle, agent-orchestrator) are Phase 2+.
 - **Not a PyRIT fork** — PyRIT is `pip install pyrit`, used as a library dependency via the Adapter pattern. RedThread's algorithms, evaluation, and defense synthesis are entirely proprietary.

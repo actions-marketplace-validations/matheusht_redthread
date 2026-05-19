@@ -6,8 +6,10 @@ summary: How RedThread turns confirmed jailbreaks into validated defensive propo
 source_of_truth:
   - docs/DEFENSE_PIPELINE.md
   - docs/PHASE_REGISTRY.md
-updated_by: codex
-updated_at: 2026-04-18
+  - src/redthread/orchestration/graphs/defense_graph.py
+  - src/redthread/core/guardrail_loader.py
+updated_by: pi
+updated_at: 2026-05-18
 ---
 
 # Defense Synthesis and Validation
@@ -34,6 +36,13 @@ This is the core difference between a tool that only reports failures and one th
 - proposals are not treated as production-ready by default
 - validation evidence matters as much as the proposal text
 - promotion stays separate from generation
+- `candidate_defense` means generated but not validated
+- `validated_candidate` is the canonical state for replay-passed/indexed defense evidence that has not been promoted
+- `promotable_defense` requires accepted proposal state, control-gate pass, validation report coverage, replay case evidence, benign utility preservation, and `live_replay` evidence
+- `active_guardrail` is reserved for explicitly promoted controls eligible for runtime injection
+- sealed dry-run replay evidence can inform review but cannot promote by itself
+- live validation errors fail closed
+- legacy `defense_deployed` should be read only as a deprecated compatibility alias for validated candidate state
 
 ## Defense evidence modes
 

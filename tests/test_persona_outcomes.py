@@ -130,6 +130,7 @@ async def test_finalize_attaches_persona_outcome_telemetry_metadata() -> None:
         "defense_records": [],
         "defense_worker_total": 0,
         "defense_worker_failures": 0,
+        "defense_validated_candidates": 0,
         "defense_deployments": 0,
         "agentic_security_report": {},
         "agentic_action_total": 0,

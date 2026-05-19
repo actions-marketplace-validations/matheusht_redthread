@@ -43,10 +43,10 @@ def build_competitive_demo_artifact(
                 "evidence_label": "live_judge",
             },
             {
-                "step": "validated_defense",
-                "status": stages.get("defense_control", "not_reported"),
-                "count": metrics.get("validated_controls", 0),
-                "evidence_label": _stage_label(hero_proof, "defense_control"),
+                "step": "validated_defense_candidate",
+                "status": stages.get("defense_candidate", "not_reported"),
+                "count": metrics.get("validated_candidates", 0),
+                "evidence_label": _stage_label(hero_proof, "defense_candidate"),
             },
             {
                 "step": "regression_artifact",
@@ -102,7 +102,7 @@ def _stage_label(hero_proof: dict[str, Any], name: str) -> str:
 def _demo_ready(metrics: dict[str, Any], stages: dict[str, str]) -> bool:
     return bool(
         metrics.get("confirmed_findings", 0)
-        and metrics.get("validated_controls", 0)
+        and metrics.get("validated_candidates", 0)
         and stages.get("ci_regression") in {"ready", "candidate_ready"}
     )
 
@@ -111,7 +111,7 @@ def _talk_track(metrics: dict[str, Any], weak_evidence: ExternalEvidenceBundle) 
     return (
         f"Imported {len(weak_evidence.items)} weak {weak_evidence.source.value} signal(s), "
         f"confirmed {metrics.get('confirmed_findings', 0)} RedThread finding(s), "
-        f"and produced {metrics.get('validated_controls', 0)} validated control artifact(s)."
+        f"and produced {metrics.get('validated_candidates', 0)} validated candidate artifact(s)."
     )
 
 

@@ -199,6 +199,16 @@ redthread run \
   --personas 2
 ```
 
+The normal path writes one standard report directory by default:
+
+- live/default runs: `reports/<campaign_id>/`
+- dry runs: `reports/<campaign_id>/dry-run/`
+- override root: `--report-dir <path>`
+
+The Markdown report starts with three operator-proof sections: what happened, why to trust it, and what to do next. Evidence labels and uncertainty warnings appear before detailed findings so fallback or sealed proof is not mistaken for clean live proof.
+
+Use `redthread run --help` for normal and advanced operator flags. Use `redthread run --show-research` only when you need hidden research controls.
+
 ### Run local checks
 
 ```bash
@@ -255,11 +265,11 @@ RedThread uses explicit boundaries:
 
 ### Evidence boundary
 
-A score is only as strong as its evidence mode. The README, docs, and runtime summaries avoid treating sealed checks, live checks, and fallback checks as equivalent.
+A score is only as strong as its evidence mode. Reports and terminal summaries show canonical evidence labels, counts, and uncertainty notes so sealed checks, live checks, fallback checks, weak imported signals, defense candidates, promotable evidence, and active guardrails are not treated as equivalent.
 
 ### Promotion boundary
 
-Generated defenses are candidates. Promotion depends on replay evidence and explicit approval gates.
+Generated defenses are candidates. The promotion chain is `candidate_defense → validated_candidate → promotable_defense → active_guardrail`. A `validated_candidate` passed replay/indexing checks, but it is not active. `promotable_defense` requires live replay evidence, utility-gate pass, accepted proposal state, and control-gate pass. `active_guardrail` appears only after explicit promotion. `redthread research promote` and `redthread research promote-inspect` show the promotion outcome, state counts, trace evidence modes, and blocked failure buckets. Runtime injection writes `logs/guardrail_audit.jsonl` with non-secret proof: action, active trace IDs, clause hashes, target model, and prompt hash. Legacy `defense_deployed` metadata is a compatibility alias for validated candidate state, not proof of production deployment.
 
 ### Mutation boundary
 

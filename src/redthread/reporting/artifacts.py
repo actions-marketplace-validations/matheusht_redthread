@@ -7,7 +7,7 @@ from typing import Any
 
 from redthread.models import AttackResult, CampaignResult
 from redthread.orchestration.models import CampaignPlan
-from redthread.reporting.evidence_labels import evidence_label_summary
+from redthread.reporting.evidence_summary import campaign_evidence_summary
 from redthread.reporting.hero_proof import build_hero_proof_bundle
 from redthread.reporting.models import (
     DETECTOR_LIMITATION,
@@ -44,6 +44,7 @@ def build_operator_artifact_bundle(
         if result.verdict.is_jailbreak
     ]
     persona_artifacts = persona_artifacts_from_metadata(campaign.metadata)
+    evidence = campaign_evidence_summary(campaign)
     bundle = OperatorArtifactBundle(
         campaign_id=campaign.id,
         rules_of_engagement=RulesOfEngagementSummary(
@@ -75,7 +76,9 @@ def build_operator_artifact_bundle(
         ),
         regression_pack_summary=RegressionPackSummary(case_count=len(links), links=links),
         limitations=limitations,
-        evidence_labels=evidence_label_summary(_observed_evidence_modes(campaign)),
+        evidence_labels=evidence["labels"],
+        evidence_mode_counts=evidence["counts"],
+        evidence_uncertainty=evidence["uncertainty_notes"],
         persona_outcome_telemetry=persona_artifacts["persona_outcome_telemetry"],
         adaptive_persona_weighting_plan=persona_artifacts["adaptive_persona_weighting_plan"],
     )
@@ -161,11 +164,6 @@ def _link_for_result(result: AttackResult, links: list[dict[str, Any]]) -> dict[
     return {}
 
 
-def _observed_evidence_modes(campaign: CampaignResult) -> list[str]:
-    modes = [str(campaign.metadata.get("runtime_mode", ""))]
-    for result in campaign.results:
-        modes.extend([str(result.trace.metadata.get("evidence_class", "")), "live_judge"])
-    return modes
 
 def _report_limitations(scope: ScopeSummary) -> list[str]:
     return [
