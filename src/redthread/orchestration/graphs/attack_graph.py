@@ -38,7 +38,7 @@ async def run_attack_worker(state: AttackWorkerState) -> AttackWorkerState:
     into state for collection by the supervisor's collector node.
     """
 
-    from redthread.config.settings import AlgorithmType, RedThreadSettings
+    from redthread.config.settings import RedThreadSettings
     from redthread.models import Persona
 
     try:
@@ -51,22 +51,9 @@ async def run_attack_worker(state: AttackWorkerState) -> AttackWorkerState:
             settings.algorithm.value,
         )
 
-        if settings.algorithm == AlgorithmType.PAIR:
-            from redthread.core.pair import PAIRAttack
-            attacker = PAIRAttack(settings)
-        elif settings.algorithm == AlgorithmType.TAP:
-            from redthread.core.tap import TAPAttack
-            attacker = TAPAttack(settings)
-        elif settings.algorithm == AlgorithmType.CRESCENDO:
-            from redthread.core.crescendo import CrescendoAttack
-            attacker = CrescendoAttack(settings)
-        elif settings.algorithm == AlgorithmType.MCTS:
-            from redthread.core.mcts import MCTSAttack
-            attacker = MCTSAttack(settings)
-        else:
-            raise NotImplementedError(
-                f"Algorithm '{settings.algorithm}' not supported in AttackWorker."
-            )
+        from redthread.core.attack_runner import build_default_attack_runner_registry
+
+        attacker = build_default_attack_runner_registry().create(settings.algorithm, settings)
 
         # Execute the attack algorithm
         result = await attacker.run(

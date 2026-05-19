@@ -8,8 +8,10 @@ source_of_truth:
   - docs/AUTORESEARCH_PHASE6.md
   - docs/DEFENSE_PIPELINE.md
   - docs/PHASE_REGISTRY.md
-updated_by: codex
-updated_at: 2026-04-15
+  - src/redthread/core/guardrail_loader.py
+  - src/redthread/memory/index.py
+updated_by: pi
+updated_at: 2026-05-18
 ---
 
 # Promotion and Revalidation
@@ -49,9 +51,28 @@ This is critical because otherwise the system could evolve the gatekeeper instea
 The defense pipeline includes sealed replay and structured validation reporting. Promotion later depends on evidence, not just a proposed clause.
 
 Promotion should treat defense evidence classes conservatively:
-- `live_replay` is the promotable class
+- `candidate_defense` is generated but not validated
+- `validated_candidate` passed replay/indexing checks but is not active
+- `promotable_defense` has evidence suitable for operator approval
+- `active_guardrail` is promoted and eligible for runtime injection
+- `live_replay` is the only promotable defense validation evidence class
 - `sealed_dry_run_replay` is useful sealed evidence, but not strong enough for promotion
 - `live_validation_error` means live replay evidence is incomplete, so promotion must fail closed
+
+As of Phase 11, promotion validation persists:
+- `promotion_state_by_trace`
+- `promotion_evidence_mode_by_trace`
+- `defense_utility_gate`
+- weak evidence trace IDs
+- failed validation trace IDs
+
+This lets operators see why a trace stopped at `validated_candidate` instead of becoming `promotable_defense` or `active_guardrail`.
+
+As of Phase 12, `redthread research promote` and `redthread research promote-inspect` render this evidence directly for operators. The readout includes the defense ladder, outcome line, state counts, trace-level state, trace-level evidence mode, and failure buckets. A successful explicit promotion shows `active_guardrail written: N`; dry-run and failed promotion clearly say no production memory write occurred.
+
+As of Phase 13, runtime injection has a separate audit proof. `GuardrailLoader` writes `logs/guardrail_audit.jsonl` with the injection action, active guardrail count, active trace IDs, clause hashes, target model, prompt hash, and source. This proves what was injected or skipped without requiring raw guardrail clause text in the audit event. Structured deployment records remain authoritative; legacy markdown is only a compatibility fallback.
+
+`defense_deployed` is deprecated wording. In current artifacts it remains only as a backward-compatible alias for `validated_candidate`, not proof of active production deployment.
 
 Promotion validation now also persists operator-facing buckets:
 - `missing_report_trace_ids`

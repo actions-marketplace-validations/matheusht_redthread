@@ -16,17 +16,13 @@ from redthread.cli.persona_weighting import (
     PersonaWeightingPlanFileError,
     load_persona_weighting_plan_file,
 )
+from redthread.cli.run_help import RunHelpCommand, show_research_help
 from redthread.cli.run_render import render_campaign_header, render_campaign_results
+from redthread.cli.run_reports import write_run_reports
 from redthread.cli.shared import run_async_command, setup_logging
 from redthread.config.settings import AlgorithmType, RedThreadSettings
 from redthread.engine import RedThreadEngine
-from redthread.engine_transcript import write_transcript
 from redthread.models import CampaignConfig
-from redthread.reporting import (
-    build_operator_artifact_bundle,
-    write_campaign_report_artifacts,
-    write_operator_artifacts,
-)
 
 
 def _apply_run_overrides(
@@ -62,7 +58,7 @@ def _apply_run_overrides(
 
 
 def register_run_command(main: click.Group, console: Console) -> None:
-    @main.command()
+    @main.command(cls=RunHelpCommand)
     @click.option("--objective", "-o", default="agentic security validation", show_default=True, help='What to test for (e.g. "authorization bypass via identity impersonation")')
     @click.option("--system-prompt", "-s", default="You are a helpful customer service assistant.", show_default=True, help="The target agent's system prompt.")
     @click.option("--rubric", "-r", default="authorization_bypass", show_default=True, help="Judge rubric (basename). Options: authorization_bypass, authority_impersonation, urgency_and_scarcity, social_proof, fear_intimidation, reciprocity_trust, prompt_injection, insecure_output, sensitive_info.")
@@ -75,16 +71,17 @@ def register_run_command(main: click.Group, console: Console) -> None:
     @click.option("--depth", "-d", type=int, default=None, help="TAP maximum search depth")
     @click.option("--width", "-w", type=int, default=None, help="TAP maximum tree width")
     @click.option("--branching", "-b", type=int, default=None, help="TAP branching factor")
-    @click.option("--trace-all", is_flag=True, default=False, help="Enable LangSmith tracing on ALL nodes including Attacker (local debugging)")
+    @click.option("--trace-all", is_flag=True, default=False, hidden=True, help="Enable LangSmith tracing on ALL nodes including Attacker (local debugging)")
     @click.option("--turns", "-t", type=int, default=None, help="Crescendo max conversation turns")
     @click.option("--simulations", type=int, default=None, help="GS-MCTS number of simulations (overrides mcts_simulations setting)")
     @click.option("--max-budget-tokens", type=int, default=None, help="GS-MCTS token budget ceiling for early stopping (heuristic: chars // 4)")
-    @click.option("--benchmark-fixture", multiple=True, help="Use safe metadata hints from a jailbreak benchmark fixture; may repeat.")
+    @click.option("--benchmark-fixture", multiple=True, hidden=True, help="Use safe metadata hints from a jailbreak benchmark fixture; may repeat.")
     @click.option("--persona-weighting-plan", type=click.Path(exists=True, dir_okay=False), default=None, hidden=True, help="Use a safe adaptive persona weighting plan JSON artifact")
     @click.option("--report-md", type=click.Path(dir_okay=False), default=None, help="Write guide-style operator report as Markdown")
     @click.option("--report-json", type=click.Path(dir_okay=False), default=None, help="Write guide-style operator report as JSON")
     @click.option("--report-dir", type=click.Path(file_okay=False), default=None, help="Write standard campaign report directory")
     @click.option("--include-internal-sidecars", is_flag=True, default=False, hidden=True, help="Expose adaptive-learning sidecars in the report manifest")
+    @click.option("--show-research", is_flag=True, is_eager=True, expose_value=False, callback=show_research_help, help="Show hidden research controls and exit")
     def run(
         objective: str,
         system_prompt: str,
@@ -167,23 +164,16 @@ def register_run_command(main: click.Group, console: Console) -> None:
         )
         if benchmark_context:
             result.metadata["benchmark_fixture_context"] = benchmark_context.metadata()
-        if report_md or report_json or report_dir:
-            bundle = build_operator_artifact_bundle(result)
-            if report_md or report_json:
-                write_operator_artifacts(
-                    bundle,
-                    markdown_path=Path(report_md) if report_md else None,
-                    json_path=Path(report_json) if report_json else None,
-                )
-            if report_dir:
-                manifest = write_campaign_report_artifacts(
-                    bundle,
-                    Path(report_dir),
-                    include_internal_sidecars=include_internal_sidecars,
-                )
-                result.metadata["operator_report_manifest"] = manifest.model_dump(mode="json")
-                try:
-                    write_transcript(settings, result)
-                except Exception as exc:
-                    console.print(f"[yellow]⚠️ Transcript re-write skipped: {exc}[/yellow]")
+        report_write = write_run_reports(
+            result=result,
+            settings=settings,
+            report_dir=report_dir,
+            report_md=report_md,
+            report_json=report_json,
+            include_internal_sidecars=include_internal_sidecars,
+        )
+        if report_write.transcript_error:
+            console.print(
+                f"[yellow]⚠️ Transcript re-write skipped: {report_write.transcript_error}[/yellow]"
+            )
         sys.exit(render_campaign_results(console, result))

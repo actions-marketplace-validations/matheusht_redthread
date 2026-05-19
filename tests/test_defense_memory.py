@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from redthread.core.defense_models import GuardrailProposal, IsolatedSegment
+from redthread.core.defense_reporting import build_deployment_record
 from redthread.core.defense_reporting_models import DefenseValidationReport
 from redthread.core.defense_synthesis import (
     DeploymentRecord,
@@ -38,6 +40,43 @@ def test_memory_index_append_and_deduplicate(tmp_path: Path) -> None:
     assert index.append(record) is False
     assert "trace-abc123" in index.known_trace_ids()
 
+
+
+def test_build_deployment_record_marks_validated_candidate_not_active() -> None:
+    classification = VulnerabilityClassification(
+        category="prompt_injection",
+        owasp_ref="LLM01",
+        mitre_atlas_ref="AML.T0054",
+        severity="HIGH",
+        attack_vector="role-play bypass",
+    )
+    proposal = GuardrailProposal(
+        clause="Do not reveal synthetic secrets.",
+        rationale="blocks the observed bypass",
+        classification=classification,
+    )
+    validation = ValidationResult(passed=True, replay_response="blocked", judge_score=1.0)
+
+    record = build_deployment_record(
+        trace_id="trace-candidate",
+        proposal=proposal,
+        validation=validation,
+        target_model="llama3.2:3b",
+        segment=IsolatedSegment(
+            attack_payload="synthetic replay case",
+            target_response="synthetic response",
+            persona_name="tester",
+            persona_tactic="role-play",
+            trace_id="trace-candidate",
+            score=1.0,
+            target_system_prompt="guarded prompt",
+        ),
+    )
+
+    assert record.metadata["validated_candidate"] is True
+    assert record.metadata["active_guardrail"] is False
+    assert record.metadata["deployed"] is False
+    assert record.metadata["guardrail_status"] == "validated_candidate"
 
 
 def test_memory_index_blocks_canary_tagged_memory_write(tmp_path: Path) -> None:

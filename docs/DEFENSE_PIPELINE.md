@@ -4,7 +4,7 @@ This document details the exact sequence and architecture of Phase 4 (Defense Sy
 
 ## 1. Architectural Overview
 
-RedThread closes the loop on adversarial red-teaming by generating candidate defenses, validating them, and persisting scoped promotion evidence for confirmed vulnerabilities.
+RedThread closes the loop on adversarial red-teaming by generating candidate defenses, validating them, and persisting scoped promotion evidence for confirmed vulnerabilities. The promotion state chain is explicit: `candidate_defense → validated_candidate → promotable_defense → active_guardrail`.
 
 The `DefenseSynthesisEngine` is triggered conditionally by the LangGraph `RedThreadSupervisor` only when the Judge model returns `is_jailbreak = True`.
 
@@ -59,7 +59,7 @@ sequenceDiagram
 2. **CLASSIFY**: Prompts an LLM Architect to classify the attack using the OWASP LLM Top-10 and MITRE ATLAS framework.
 3. **GENERATE**: The LLM Architect drafts a concise, system-prompt-ready formatting clause (`GuardrailClause`) and a rationale.
 4. **VALIDATE**: Safely assesses the proposed clause without mutating the live engine state. The engine now runs a structured sealed replay suite via the dedicated replay runner, records exploit and benign replay cases separately, and emits a `ValidationResult` plus a structured `DefenseValidationReport`. Defense evidence classes are now explicit: `sealed_dry_run_replay`, `live_replay`, and `live_validation_error`. The current default replay suite is `default-defense-replay-v4`, which includes the isolated exploit, an override probe, a roleplay probe, and a broader but still bounded benign utility pack including JSON and YAML formatting checks. Promotion later requires strong evidence and enforces a utility gate over it. Promotion validation also persists explicit missing/weak/failed evidence buckets so operators can inspect exactly why a trace did or did not qualify for production promotion.
-5. **PERSIST / PROMOTE**: A `DeploymentRecord` is mapped with the `target_model` and `hash(target_system_prompt)` and appended to the persistent `.agent/memory/MEMORY.md` index, preserving replay evidence and the validation report in JSONL form. This persistence is scoped RedThread campaign/promotion evidence; it is not broad autonomous production enforcement.
+5. **PERSIST / PROMOTE**: A `DeploymentRecord` is mapped with the `target_model` and `hash(target_system_prompt)` and appended to memory as scoped RedThread campaign/promotion evidence. Defense synthesis writes `validated_candidate` records, not active runtime controls. Promotion may mark a record as `promotable_defense` only when the accepted proposal, control gate, validation report, replay cases, benign utility checks, and `live_replay` evidence all pass. Production memory receives `active_guardrail` records only after explicit promotion. `redthread research promote` and `redthread research promote-inspect` print the ladder, outcome, state counts, trace evidence modes, and failure buckets so operators can see what did or did not become active. Runtime injection writes `logs/guardrail_audit.jsonl` with action, active trace IDs, clause hashes, target model, and prompt hash so injection proof does not depend on raw clause text. This persistence is not broad autonomous production enforcement.
 
 ## 4. Telemetry & Drift Detection (Phase 4.5)
 

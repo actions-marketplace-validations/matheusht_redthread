@@ -109,7 +109,11 @@ class ValidationResult:
 
 @dataclass
 class DeploymentRecord:
-    """Immutable record written to MEMORY.md after successful deploy."""
+    """Immutable guardrail evidence record.
+
+    It can represent a candidate, a validated candidate, or an active guardrail
+    depending on metadata. Runtime injection must only use active guardrails.
+    """
 
     trace_id: str
     guardrail_clause: str

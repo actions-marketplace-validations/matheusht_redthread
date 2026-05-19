@@ -10,6 +10,12 @@ from rich.console import Console
 from rich.panel import Panel
 
 from redthread.config.settings import RedThreadSettings
+from redthread.research.promotion_readout import (
+    PROMOTION_LADDER,
+    promotion_outcome_line,
+    state_count_line,
+    trace_state_lines,
+)
 
 
 def register_research_promotion_commands(research: click.Group, console: Console) -> None:
@@ -22,16 +28,28 @@ def register_research_promotion_commands(research: click.Group, console: Console
         manager = ResearchPromotionManager(RedThreadSettings(_env_file=env_file), Path.cwd())
         promotion = manager.promote_latest(dry_run=dry_run)
         payload = json.loads(Path(promotion.validation_ref).read_text(encoding="utf-8"))
+        state_by_trace = payload.get("promotion_state_by_trace", {})
+        evidence_by_trace = payload.get("promotion_evidence_mode_by_trace", {})
         lines = [
             f"  Promotion: {promotion.promotion_id}",
             f"  Proposal:  {promotion.proposal_id}",
             f"  Validation:{promotion.validation_status}",
+            f"  Outcome:   {promotion_outcome_line(promotion.validation_status, promotion.promoted_deployments, dry_run)}",
+            f"  Ladder:    {PROMOTION_LADDER}",
+            f"  States:    {state_count_line(state_by_trace)}",
             f"  Entries:   {promotion.promoted_deployments}",
             f"  Reports:   {len(promotion.defense_report_refs)}",
             f"  Manifest:  {promotion.manifest_ref}",
             f"  Validation:{promotion.validation_ref}",
             f"  Target:    {promotion.target_memory_dir}",
         ]
+        trace_lines = trace_state_lines(
+            state_by_trace,
+            evidence_by_trace,
+            promotion.promoted_trace_ids,
+        )
+        if trace_lines:
+            lines.extend(["  Trace states:", *trace_lines])
         _append_if_any(lines, "Missing reports", payload.get("missing_report_trace_ids", []))
         _append_if_any(lines, "Weak evidence", payload.get("weak_evidence_trace_ids", []))
         _append_if_any(lines, "Failed replay", payload.get("failed_validation_trace_ids", []))

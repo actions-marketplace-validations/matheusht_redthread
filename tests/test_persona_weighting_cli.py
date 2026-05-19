@@ -89,7 +89,7 @@ def test_run_cli_hides_internal_sidecars_from_report_manifest(
     )
 
     assert result.exit_code == 0
-    manifest_path = next((tmp_path / "reports").glob("*/manifest.json"))
+    manifest_path = next((tmp_path / "reports").glob("*/dry-run/manifest.json"))
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["persona_outcome_telemetry"] == ""
     assert manifest["adaptive_persona_weighting_plan"] == ""

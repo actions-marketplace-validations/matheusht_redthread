@@ -1,4 +1,4 @@
-"""Defense Synthesis Engine — isolate, classify, validate, deploy."""
+"""Defense Synthesis Engine — isolate, classify, validate, and record candidates."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ class DefenseSynthesisEngine:
 
     @traced
     async def run(self, result: AttackResult) -> DeploymentRecord:
-        """Execute the full defense workflow and return the deployment record."""
+        """Execute the full defense workflow and return a candidate record."""
         segment = self._isolate(result)
         proposal = await self._classify_and_generate(segment, result.verdict)
         validation = await self._validate(segment, proposal, result.trace)
@@ -145,7 +145,7 @@ class DefenseSynthesisEngine:
         target_model: str,
         segment: IsolatedSegment,
     ) -> DeploymentRecord:
-        """Create the structured deployment record for memory/promotion."""
+        """Create the structured candidate record for memory/promotion."""
         return build_deployment_record(
             trace_id=trace_id,
             proposal=proposal,

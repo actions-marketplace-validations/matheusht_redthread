@@ -1,425 +1,35 @@
-"""LangGraph Supervisor — central coordinator for RedThread Phase 4.
+"""LangGraph supervisor facade for RedThread campaigns.
 
-Implements a StateGraph with the following macro-workflow:
-  generate_personas → fan_out → [attack_worker × N] → collect → judge_worker → route → defense_worker?
-
-Workflow:
-  1. `generate_personas`   — Creates adversarial personas from the campaign objective.
-  2. Fan-out via Send API  — Spawns one `attack_worker` per persona in parallel.
-  3. `collect_results`     — Aggregates attack_worker outputs into the supervisor state.
-  4. `judge_workers`       — Runs G-Eval re-evaluation on each result sequentially
-                             (can be parallelized in a future iteration).
-  5. `route_to_defense`    — Conditional: if any jailbreaks confirmed, route to defense.
-  6. `defense_worker`      — Optional: runs Defense Synthesis for confirmed jailbreaks.
-  7. `finalize`            — Builds final CampaignResult.
-
-The StateGraph schema is `SupervisorState`. The supervisor exposes a single
-`invoke(config)` method that engine.py calls as a facade.
+The public import surface stays here for compatibility. The graph is now built
+from small stage modules so the supervisor file remains an auditable facade.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal
-
-from langgraph.graph import END, StateGraph
-from langgraph.types import Send
-from typing_extensions import TypedDict
+from datetime import datetime, timezone
 
 from redthread.config.settings import RedThreadSettings
+from redthread.core.defense_status import validated_candidate_count_fields
 from redthread.models import CampaignConfig, CampaignResult
-from redthread.orchestration.agentic_security_runtime import (
-    run_agentic_security_review,
+from redthread.orchestration.supervisor_finalize import finalize_node
+from redthread.orchestration.supervisor_graph import attack_worker_node, build_supervisor_graph
+from redthread.orchestration.supervisor_nodes import (
+    _worker_canary_update,
+    analyze_agentic_security_node,
+    collect_results_node,
+    defense_synthesis_node,
+    generate_personas_node,
+    judge_all_results_node,
 )
+from redthread.orchestration.supervisor_routing import fan_out_attack_workers, route_to_defense
+from redthread.orchestration.supervisor_state import SupervisorState
 
 logger = logging.getLogger(__name__)
 
 
-# ── Supervisor state schema ───────────────────────────────────────────────────
-
-def _merge_lists(a: list, b: list) -> list:
-    return a + b
-
-
-class SupervisorState(TypedDict):
-    """Global state flowing through the LangGraph supervisor."""
-
-    settings_dict: dict[str, Any]
-    config_dict: dict[str, Any]
-    persona_dicts: list[dict[str, Any]]
-
-    # Attack worker outputs — collected via Send fan-out
-    attack_results: Annotated[list[dict[str, Any]], _merge_lists]
-    attack_worker_total: int
-    attack_worker_failures: int
-
-    # Post-judge results
-    judged_results: Annotated[list[dict[str, Any]], _merge_lists]
-    judge_worker_total: int
-    judge_worker_failures: int
-
-    # Defense outputs
-    defense_records: Annotated[list[dict[str, Any]], _merge_lists]
-    defense_worker_total: int
-    defense_worker_failures: int
-    defense_deployments: int
-
-    # Agentic-security runtime review
-    agentic_security_report: dict[str, Any]
-    agentic_action_total: int
-    authorization_decision_counts: dict[str, int]
-    canary_event_total: int
-    canary_report: dict[str, Any]
-    live_canary_event_total: int
-    live_canary_report: dict[str, Any]
-    amplification_metrics: dict[str, Any]
-    budget_stop_triggered: bool
-    untrusted_lineage_action_total: int
-
-    # Final
-    campaign_result_dict: dict[str, Any] | None
-    errors: Annotated[list[str], _merge_lists]
-
-
-# ── Node functions ────────────────────────────────────────────────────────────
-
-async def generate_personas_node(state: SupervisorState) -> dict[str, Any]:
-    """Generate adversarial personas for the campaign objective."""
-    from redthread.config.settings import RedThreadSettings
-    from redthread.models import CampaignConfig
-    from redthread.personas.adaptive_weighting import AdaptivePersonaWeightingPlan
-    from redthread.personas.generator import PersonaGenerator
-    from redthread.personas.prompt_layers import PromptingLayerProfile
-
-    settings = RedThreadSettings.model_validate(state["settings_dict"])
-    config = CampaignConfig.model_validate(state["config_dict"])
-
-    logger.info("👤 Supervisor: generating %d personas...", config.num_personas)
-
-    gen = PersonaGenerator(settings)
-    prompting_layer_profile = (
-        PromptingLayerProfile.model_validate(config.prompting_layer_profile)
-        if config.prompting_layer_profile
-        else None
-    )
-    persona_weighting_plan = (
-        AdaptivePersonaWeightingPlan.model_validate(config.persona_weighting_plan)
-        if config.persona_weighting_plan
-        else None
-    )
-    personas = await gen.generate_batch(
-        objective=config.objective,
-        count=config.num_personas,
-        prompting_layer_profile=prompting_layer_profile,
-        persona_weighting_plan=persona_weighting_plan,
-    )
-
-    return {"persona_dicts": [p.model_dump(mode="json") for p in personas]}
-
-
-def fan_out_attack_workers(state: SupervisorState) -> list[Send]:
-    """Fan out one attack_worker per persona using LangGraph Send API."""
-    from redthread.orchestration.graphs.attack_graph import AttackWorkerState
-
-    config = state["config_dict"]
-    sends = []
-    for persona_dict in state["persona_dicts"]:
-        worker_state: AttackWorkerState = {
-            "settings_dict": state["settings_dict"],
-            "persona_dict": persona_dict,
-            "target_system_prompt": config.get("target_system_prompt", ""),
-            "rubric_name": config.get("rubric_name", "authorization_bypass"),
-            "result_dict": None,
-            "error": None,
-        }
-        sends.append(Send("attack_worker", worker_state))
-
-    logger.info("⚡ Supervisor: fanning out %d attack workers...", len(sends))
-    return sends
-
-
-def _worker_canary_update(
-    outputs: list[dict[str, Any]],
-    existing_report: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Extract canary reports emitted by workers and merge them for supervisor state."""
-    from redthread.orchestration.runtime_summary import merge_canary_reports
-
-    reports = [existing_report] if existing_report else []
-    reports.extend(
-        output["live_canary_report"]
-        for output in outputs
-        if isinstance(output.get("live_canary_report"), dict)
-    )
-    merged = merge_canary_reports(reports)
-    if not merged:
-        return {}
-    return {
-        "live_canary_report": merged,
-        "live_canary_event_total": merged.get("stage_count", 0),
-    }
-
-
-async def collect_results_node(state: SupervisorState) -> dict[str, Any]:
-    """Collect all attack_worker outputs — consolidates fan-out results."""
-    logger.info(
-        "📦 Supervisor: collecting %d attack results...",
-        len(state["attack_results"]),
-    )
-    errors = [
-        r.get("error")
-        for r in state["attack_results"]
-        if r.get("error")
-    ]
-    attack_worker_failures = sum(
-        1 for r in state["attack_results"] if r.get("error") or not r.get("result_dict")
-    )
-    return {
-        "errors": errors,
-        "attack_worker_total": len(state["attack_results"]),
-        "attack_worker_failures": attack_worker_failures,
-        **_worker_canary_update(state["attack_results"]),
-    }
-
-
-async def judge_all_results_node(state: SupervisorState) -> dict[str, Any]:
-    """Run JudgeAgent re-evaluation on all collected attack results."""
-    from redthread.orchestration.graphs.judge_graph import run_judge_worker
-
-    judged: list[dict[str, Any]] = []
-    errors: list[str] = []
-    judge_worker_failures = 0
-
-    config = state["config_dict"]
-    judge_inputs = [r for r in state["attack_results"] if r.get("result_dict")]
-
-    for raw_result in judge_inputs:
-        worker_output = await run_judge_worker({
-            "settings_dict": state["settings_dict"],
-            "result_dict": raw_result["result_dict"],
-            "rubric_name": config.get("rubric_name", "authorization_bypass"),
-            "judged_result_dict": None,
-            "is_jailbreak": False,
-            "final_score": 0.0,
-            "error": None,
-        })
-
-        if worker_output.get("judged_result_dict"):
-            judged.append(worker_output["judged_result_dict"])
-        if worker_output.get("error"):
-            errors.append(worker_output["error"])
-            judge_worker_failures += 1
-
-    logger.info(
-        "🔬 Supervisor: %d results judged | jailbreaks=%d",
-        len(judged),
-        sum(1 for r in judged if r.get("verdict", {}).get("is_jailbreak")),
-    )
-    return {
-        "judged_results": judged,
-        "errors": errors,
-        "judge_worker_total": len(judge_inputs),
-        "judge_worker_failures": judge_worker_failures,
-        **_worker_canary_update(judged, state.get("live_canary_report")),
-    }
-
-
-async def analyze_agentic_security_node(state: SupervisorState) -> dict[str, Any]:
-    """Run additive agentic-security runtime review when campaign surface looks relevant."""
-    config = CampaignConfig.model_validate(state["config_dict"])
-    report = run_agentic_security_review(config)
-    return {
-        "agentic_security_report": report,
-        "agentic_action_total": report.get("action_total", 0),
-        "authorization_decision_counts": report.get("authorization_decision_counts", {}),
-        "canary_event_total": report.get("canary_event_total", 0),
-        "canary_report": report.get("canary_report", {}),
-        "amplification_metrics": report.get("amplification_metrics", {}),
-        "budget_stop_triggered": report.get("budget_stop_triggered", False),
-        "untrusted_lineage_action_total": report.get("untrusted_lineage_action_total", 0),
-    }
-
-
-def route_to_defense(state: SupervisorState) -> Literal["defense_synthesis", "finalize"]:
-    """Conditional routing — skip defense synthesis if no jailbreaks confirmed."""
-    jailbreaks = [
-        r for r in state["judged_results"]
-        if r.get("verdict", {}).get("is_jailbreak")
-    ]
-    if jailbreaks:
-        logger.info(
-            "🛡️  Supervisor: routing to defense synthesis (%d jailbreaks).",
-            len(jailbreaks),
-        )
-        return "defense_synthesis"
-    logger.info("✅ Supervisor: no jailbreaks — routing directly to finalize.")
-    return "finalize"
-
-
-async def defense_synthesis_node(state: SupervisorState) -> dict[str, Any]:
-    """Run DefenseWorker for all confirmed jailbreaks."""
-    from redthread.orchestration.graphs.defense_graph import run_defense_worker
-
-    records: list[dict[str, Any]] = []
-    errors: list[str] = []
-    defense_worker_failures = 0
-    defense_deployments = 0
-    defense_inputs = [
-        result_dict
-        for result_dict in state["judged_results"]
-        if result_dict.get("verdict", {}).get("is_jailbreak")
-    ]
-
-    for result_dict in defense_inputs:
-        worker_output = await run_defense_worker({
-            "settings_dict": state["settings_dict"],
-            "result_dict": result_dict,
-            "defense_deployed": False,
-            "guardrail_clause": None,
-            "error": None,
-        })
-
-        record = {
-            "defense_deployed": worker_output["defense_deployed"],
-            "guardrail_clause": worker_output.get("guardrail_clause"),
-        }
-        record.update(worker_output.get("record_dict") or {})
-        records.append(record)
-        if worker_output.get("defense_deployed"):
-            defense_deployments += 1
-        if worker_output.get("error"):
-            errors.append(worker_output["error"])
-            defense_worker_failures += 1
-
-    return {
-        "defense_records": records,
-        "errors": errors,
-        "defense_worker_total": len(defense_inputs),
-        "defense_worker_failures": defense_worker_failures,
-        "defense_deployments": defense_deployments,
-        **_worker_canary_update(records, state.get("live_canary_report")),
-    }
-
-
-async def finalize_node(state: SupervisorState) -> dict[str, Any]:
-    """Assemble the final CampaignResult from all judged results."""
-    from datetime import datetime, timezone
-
-    from redthread.models import AttackResult, CampaignConfig, CampaignResult, Persona
-    from redthread.orchestration.runtime_summary import build_runtime_summary
-    from redthread.personas.outcomes import (
-        build_persona_outcome_telemetry,
-        persona_profiles_by_id,
-    )
-    from redthread.personas.prompt_layers import PromptingLayerProfile
-
-    config = CampaignConfig.model_validate(state["config_dict"])
-    results: list[AttackResult] = []
-
-    for r_dict in state["judged_results"]:
-        try:
-            results.append(AttackResult.model_validate(r_dict))
-        except Exception as exc:
-            logger.warning("Failed to deserialize judged result: %s", exc)
-
-    personas = [Persona.model_validate(raw) for raw in state["persona_dicts"]]
-    prompting_layer_profile = (
-        PromptingLayerProfile.model_validate(config.prompting_layer_profile)
-        if config.prompting_layer_profile
-        else None
-    )
-    persona_outcome_telemetry = build_persona_outcome_telemetry(
-        results,
-        persona_profiles_by_id(personas, prompting_layer_profile),
-    )
-    runtime_summary = build_runtime_summary(state)
-    campaign = CampaignResult(
-        config=config,
-        results=results,
-        ended_at=datetime.now(timezone.utc),
-        metadata={
-            "runtime_summary": runtime_summary,
-            "agentic_security_report": state.get("agentic_security_report", {}),
-            "degraded_runtime": runtime_summary["degraded_runtime"],
-            "error_count": runtime_summary["error_count"],
-            "persona_outcome_telemetry": persona_outcome_telemetry.model_dump(mode="json"),
-            "defense_records": state.get("defense_records", []),
-        },
-    )
-
-    logger.info(
-        "✅ Supervisor finalized | ASR=%.1f%% | avg_score=%.2f | runs=%d | degraded=%s",
-        campaign.attack_success_rate * 100,
-        campaign.average_score,
-        len(campaign.results),
-        runtime_summary["degraded_runtime"],
-    )
-
-    return {"campaign_result_dict": campaign.model_dump(mode="json")}
-
-
-# ── Attack worker adapter (required for fan-out target node) ──────────────────
-
-async def attack_worker_node(state: dict[str, Any]) -> dict[str, Any]:
-    """Adapter wrapping run_attack_worker for LangGraph node registration."""
-    from redthread.orchestration.graphs.attack_graph import run_attack_worker
-    result = await run_attack_worker(state)  # type: ignore[arg-type]
-    # The supervisor's attack_results field collects via _merge_lists reducer
-    return {"attack_results": [result]}
-
-
-# ── Graph construction ────────────────────────────────────────────────────────
-
-def build_supervisor_graph() -> StateGraph:
-    """Construct and compile the LangGraph supervisor StateGraph."""
-
-    graph = StateGraph(SupervisorState)
-
-    # Register nodes
-    graph.add_node("generate_personas", generate_personas_node)
-    graph.add_node("attack_worker", attack_worker_node)
-    graph.add_node("collect_results", collect_results_node)
-    graph.add_node("judge_all", judge_all_results_node)
-    graph.add_node("analyze_agentic_security", analyze_agentic_security_node)
-    graph.add_node("defense_synthesis", defense_synthesis_node)
-    graph.add_node("finalize", finalize_node)
-
-    # Entry point
-    graph.set_entry_point("generate_personas")
-
-    # Sequential edges
-    graph.add_conditional_edges(
-        "generate_personas",
-        fan_out_attack_workers,  # Returns list[Send] — fan-out
-        ["attack_worker"],
-    )
-    graph.add_edge("attack_worker", "collect_results")
-    graph.add_edge("collect_results", "judge_all")
-    graph.add_edge("judge_all", "analyze_agentic_security")
-
-    # Conditional routing after additive runtime review
-    graph.add_conditional_edges(
-        "analyze_agentic_security",
-        route_to_defense,
-        {
-            "defense_synthesis": "defense_synthesis",
-            "finalize": "finalize",
-        },
-    )
-    graph.add_edge("defense_synthesis", "finalize")
-    graph.add_edge("finalize", END)
-
-    return graph
-
-
 class RedThreadSupervisor:
-    """Facade over the compiled LangGraph supervisor graph.
-
-    Usage (from engine.py)::
-
-        supervisor = RedThreadSupervisor(settings)
-        campaign_result = await supervisor.invoke(config)
-    """
+    """Facade over the compiled LangGraph supervisor graph."""
 
     def __init__(self, settings: RedThreadSettings) -> None:
         self.settings = settings
@@ -427,63 +37,72 @@ class RedThreadSupervisor:
 
     async def invoke(self, config: CampaignConfig) -> CampaignResult:
         """Execute the full campaign via the LangGraph supervisor."""
-        from datetime import datetime, timezone
-
         from redthread.core.guardrail_loader import GuardrailLoader
 
         loader = GuardrailLoader(self.settings)
         injected_config = loader.inject_guardrails(config)
-
-        initial_state: SupervisorState = {
-            "settings_dict": self.settings.model_dump(mode="json"),
-            "config_dict": injected_config.model_dump(mode="json"),
-            "persona_dicts": [],
-            "attack_results": [],
-            "attack_worker_total": 0,
-            "attack_worker_failures": 0,
-            "judged_results": [],
-            "judge_worker_total": 0,
-            "judge_worker_failures": 0,
-            "defense_records": [],
-            "defense_worker_total": 0,
-            "defense_worker_failures": 0,
-            "defense_deployments": 0,
-            "agentic_security_report": {},
-            "agentic_action_total": 0,
-            "authorization_decision_counts": {},
-            "canary_event_total": 0,
-            "canary_report": {},
-            "live_canary_event_total": 0,
-            "live_canary_report": {},
-            "amplification_metrics": {},
-            "budget_stop_triggered": False,
-            "untrusted_lineage_action_total": 0,
-            "campaign_result_dict": None,
-            "errors": [],
-        }
-
+        initial_state = _initial_state(self.settings, injected_config)
         logger.info(
             "🚀 Supervisor.invoke | objective=%s | algorithm=%s | personas=%d",
             config.objective,
             self.settings.algorithm.value,
             config.num_personas,
         )
-
         final_state = await self._graph.ainvoke(initial_state)
-
         if final_state.get("errors"):
             logger.warning(
                 "Supervisor completed with %d error(s): %s",
                 len(final_state["errors"]),
                 final_state["errors"][:3],
             )
-
-        # Deserialize final CampaignResult
         if final_state.get("campaign_result_dict"):
             return CampaignResult.model_validate(final_state["campaign_result_dict"])
+        return CampaignResult(config=injected_config, ended_at=datetime.now(timezone.utc))
 
-        # Fallback empty result
-        return CampaignResult(
-            config=injected_config,
-            ended_at=datetime.now(timezone.utc),
-        )
+
+def _initial_state(settings: RedThreadSettings, config: CampaignConfig) -> SupervisorState:
+    """Build the initial graph state for one campaign."""
+    return {
+        "settings_dict": settings.model_dump(mode="json"),
+        "config_dict": config.model_dump(mode="json"),
+        "persona_dicts": [],
+        "attack_results": [],
+        "attack_worker_total": 0,
+        "attack_worker_failures": 0,
+        "judged_results": [],
+        "judge_worker_total": 0,
+        "judge_worker_failures": 0,
+        "defense_records": [],
+        "defense_worker_total": 0,
+        "defense_worker_failures": 0,
+        **validated_candidate_count_fields(0),
+        "agentic_security_report": {},
+        "agentic_action_total": 0,
+        "authorization_decision_counts": {},
+        "canary_event_total": 0,
+        "canary_report": {},
+        "live_canary_event_total": 0,
+        "live_canary_report": {},
+        "amplification_metrics": {},
+        "budget_stop_triggered": False,
+        "untrusted_lineage_action_total": 0,
+        "campaign_result_dict": None,
+        "errors": [],
+    }
+
+
+__all__ = [
+    "RedThreadSupervisor",
+    "SupervisorState",
+    "_worker_canary_update",
+    "analyze_agentic_security_node",
+    "attack_worker_node",
+    "build_supervisor_graph",
+    "collect_results_node",
+    "defense_synthesis_node",
+    "fan_out_attack_workers",
+    "finalize_node",
+    "generate_personas_node",
+    "judge_all_results_node",
+    "route_to_defense",
+]

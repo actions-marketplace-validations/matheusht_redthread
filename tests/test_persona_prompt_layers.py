@@ -165,6 +165,7 @@ async def test_supervisor_passes_prompting_layer_profile_to_persona_generator(
             "defense_records": [],
             "defense_worker_total": 0,
             "defense_worker_failures": 0,
+            "defense_validated_candidates": 0,
             "defense_deployments": 0,
             "agentic_security_report": {},
             "agentic_action_total": 0,

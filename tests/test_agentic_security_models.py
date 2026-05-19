@@ -120,6 +120,13 @@ def test_runtime_summary_exposes_agentic_security_fields_when_present() -> None:
     assert summary["agentic_security"]["untrusted_lineage_action_total"] == 2
 
 
+def test_runtime_summary_uses_validated_candidate_count_with_legacy_alias() -> None:
+    summary = build_runtime_summary({"defense_validated_candidates": 2, "defense_deployments": 9, "errors": []})
+
+    assert summary["defense_validated_candidates"] == 2
+    assert summary["defense_deployments"] == 2
+
+
 def test_runtime_summary_defaults_agentic_security_to_empty_shape() -> None:
     summary = build_runtime_summary({"attack_worker_total": 0, "errors": []})
 

@@ -1,4 +1,4 @@
-"""Helpers for building defense validation reports and deployment records."""
+"""Helpers for building defense validation reports and candidate records."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from redthread.core.defense_models import (
     ValidationResult,
 )
 from redthread.core.defense_reporting_models import DefenseValidationReport
+from redthread.core.defense_status import inactive_candidate_metadata
 
 
 def build_validation_report(
@@ -66,7 +67,7 @@ def build_deployment_record(
     target_model: str,
     segment: IsolatedSegment,
 ) -> DeploymentRecord:
-    """Build the deployment record stored in memory and promotion artifacts."""
+    """Build the candidate record stored in memory and promotion artifacts."""
     prompt_hash = hashlib.sha256((segment.target_system_prompt or "").encode("utf-8")).hexdigest()[:16]
     report = build_validation_report(
         trace_id=trace_id,
@@ -83,7 +84,11 @@ def build_deployment_record(
         validation_report=report,
         metadata={
             "rationale": proposal.rationale,
-            "deployed": validation.passed,
+            **inactive_candidate_metadata(validation.passed),
+            "validation_passed": validation.passed,
+            "indexed_candidate": validation.passed,
+            "guardrail_status": "validated_candidate" if validation.passed else "candidate_defense",
+            "promotion_status": "not_promoted",
             "replay_suite_id": validation.replay_suite_id,
             "validation_mode": validation.validation_mode,
             "evidence_mode": validation.evidence_mode,

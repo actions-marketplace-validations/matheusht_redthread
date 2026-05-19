@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from redthread.core.defense_status import validated_candidate
 from redthread.models import AttackResult, CampaignResult
 from redthread.reporting.evidence_labels import normalize_evidence_label
 from redthread.reporting.models import OperatorArtifactBundle
@@ -80,7 +81,7 @@ def _judge_stage(bundle: OperatorArtifactBundle) -> HeroProofStage:
     return HeroProofStage(
         name="judge",
         status="completed" if verdicts else "empty",
-        evidence_label="live_judge",
+        evidence_label=_judge_evidence_label(bundle),
         details={
             "verdict_count": len(verdicts),
             "confirmed_findings": bundle.vulnerability_report.finding_count,
@@ -88,13 +89,22 @@ def _judge_stage(bundle: OperatorArtifactBundle) -> HeroProofStage:
     )
 
 
+def _judge_evidence_label(bundle: OperatorArtifactBundle) -> str:
+    counts = bundle.evidence_mode_counts
+    if "fallback" in counts:
+        return "fallback"
+    if "live_judge" in counts:
+        return "live_judge"
+    return normalize_evidence_label(bundle.stakeholder_readout.evidence_mode)
+
+
 def _defense_stage(records: list[dict[str, Any]]) -> HeroProofStage:
-    deployed = sum(1 for record in records if record.get("defense_deployed"))
+    validated = sum(1 for record in records if validated_candidate(record))
     return HeroProofStage(
-        name="defense_control",
-        status="validated" if deployed else "not_validated",
+        name="defense_candidate",
+        status="validated_candidate" if validated else "not_validated",
         evidence_label=normalize_evidence_label(_first_evidence_label(records)),
-        details={"defense_records": len(records), "validated_controls": deployed},
+        details={"defense_records": len(records), "validated_candidates": validated},
     )
 
 
@@ -142,7 +152,7 @@ def _metrics(
         "risk_coverage_count": len(bundle.rules_of_engagement.risks_tested),
         "strategy_coverage_count": len(bundle.rules_of_engagement.strategies_used),
         "false_positive_proxy_count": _false_positive_proxy_count(campaign.results),
-        "validated_controls": sum(1 for record in records if record.get("defense_deployed")),
+        "validated_candidates": sum(1 for record in records if validated_candidate(record)),
     }
 
 
@@ -151,7 +161,7 @@ def _ci_regression(bundle: OperatorArtifactBundle, records: list[dict[str, Any]]
         "schema_version": "redthread.ci_regression.v1",
         "recommended_command": "redthread test golden",
         "regression_case_count": bundle.regression_pack_summary.case_count,
-        "validated_control_count": sum(1 for record in records if record.get("defense_deployed")),
+        "validated_candidate_count": sum(1 for record in records if validated_candidate(record)),
         "links": bundle.regression_pack_summary.links,
     }
 
@@ -178,11 +188,10 @@ def _validation_count(records: list[dict[str, Any]], key: str) -> int:
 
 
 def _false_positive_proxy_count(results: list[AttackResult]) -> int:
-    return sum(
-        1
-        for result in results
-        if not result.verdict.is_jailbreak and result.trace.metadata.get("detector_hint_summary")
-    )
+    return sum(1 for result in results if _has_weak_detector_hint(result))
 
+
+def _has_weak_detector_hint(result: AttackResult) -> bool:
+    return not result.verdict.is_jailbreak and bool(result.trace.metadata.get("detector_hint_summary"))
 
 __all__ = ["HeroProofBundle", "HeroProofStage", "build_hero_proof_bundle"]

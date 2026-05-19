@@ -1,5 +1,64 @@
 # Wiki Log
 
+## [2026-05-18] implementation | completed Phase 13 runtime active-guardrail audit proof
+- added structured active guardrail record lookup in `MemoryIndex`
+- added non-secret `GuardrailLoader` audit events with action, count, trace IDs, clause hashes, target model, prompt hash, and source
+- documented that runtime injection proof no longer depends on raw clause text in audit events
+- updated README, defense pipeline docs, promotion system page, and simplicity implementation plan
+
+## [2026-05-18] implementation | completed Phase 12 promotion proof readout
+- added operator-facing promotion outcome, ladder, state counts, trace state, trace evidence mode, and failure-bucket readouts
+- wired the readout into `redthread research promote` and `redthread research promote-inspect`
+- documented that successful promotion says `active_guardrail written: N`, dry-run says no production write, and failed promotion says no active guardrail was written
+- updated the simplicity implementation plan, promotion system page, defense pipeline, and README
+
+## [2026-05-18] implementation | completed Phase 11 promotion workflow hardening
+- formalized the defense promotion chain: `candidate_defense → validated_candidate → promotable_defense → active_guardrail`
+- added promotion validation fields for state-by-trace and evidence-mode-by-trace
+- marked records written by explicit promotion as `active_guardrail`, while keeping validated candidates inactive
+- added regression coverage proving sealed dry-run replay and live validation errors cannot promote by accident
+- updated README, defense pipeline docs, and wiki system pages with the promotion boundary
+
+## [2026-05-18] implementation | completed Phase 10 operator proof UX
+- added top-of-report Executive Summary, Why Trust This Report, and What To Do Next sections
+- made Markdown reports show promotion state and proof path before detailed findings
+- kept JSON artifact shape unchanged for compatibility
+- preserved evidence-honesty language: JudgeAgent owns findings, detector hints stay weak, and promotion still requires explicit approval
+
+## [2026-05-18] documentation | migrated defense wording toward candidate language
+- updated operator/wiki/source comments from deployment wording to defense-candidate wording where no active guardrail is implied
+- preserved deprecated alias documentation only where needed for compatibility
+- left type and file names such as `DeploymentRecord` intact for a later API-breaking migration
+
+## [2026-05-18] implementation | started Phase 9 deprecation migration
+- added canonical `defense_validated_candidates` runtime summary/state count
+- kept `defense_deployments` as a deprecated compatibility alias that mirrors the canonical count
+- changed defense candidate record metadata so validated candidates are not marked as `deployed` or `active_guardrail`
+- centralized canonical defense status keys and deprecated aliases in `src/redthread/core/defense_status.py`
+- documented the migration boundary in orchestration and simplicity plan pages
+
+## [2026-05-18] implementation | completed simplicity Phases 2-8
+- implemented and documented canonical evidence labels, evidence-mode counts, and uncertainty notes in operator reports and manifests
+- recorded the supervisor extraction, attack runner registry, TAP safety net, defense candidate/active guardrail boundary, and settings profile simplification
+- updated README/product/wiki guidance to describe the default report path, hidden research controls, and validated-candidate versus active-guardrail boundary
+- demoted `defense_deployed` to a deprecated compatibility alias for `validated_candidate` rather than deleting it prematurely
+- preserved explicit environment/profile precedence: constructor/env/`.env` values continue to win over profile defaults
+
+## [2026-05-18] implementation | shipped simplicity Phase 0-1 golden run path
+- updated `research/redthread-simplicity-implementation-plan.md` with approved answers for Q1-Q5
+- updated `decisions/simplicity-spine-and-golden-path.md` to reflect the shipped no-flag golden report path
+- implemented and documented default `redthread run` report persistence at `reports/<campaign_id>/`, with dry-runs under `reports/<campaign_id>/dry-run/`
+- recorded CLI help tiers: normal, advanced, and hidden research controls available through `--show-research`
+- documented that guardrail promotion boundaries, judge/defense parallelization, and settings profiles remain later phases
+- added focused CLI report/help tests and preserved the evidence-honesty boundary
+
+## [2026-05-18] decision+planning | recorded RedThread simplicity spine and phased plan
+- created `decisions/simplicity-spine-and-golden-path.md`
+- created `research/redthread-simplicity-implementation-plan.md`
+- recorded consensus that the default flow should center on `attack → judge → defend → replay → promotion evidence`
+- kept JudgeAgent, evidence classes, replay gates, and promotion boundaries as essential complexity
+- updated `docs/wiki/index.md`
+
 ## [2026-05-15] decision | archived failed heuristics A/B experiment
 - created `decisions/heuristics-ab-experiment-no-merge.md`
 - recorded that the valid A/B proof favored baseline over hidden hand-written routing heuristics
