@@ -1,4 +1,4 @@
-<!-- ![RedThread banner: closed-loop LLM red-teaming, attack, judge, defend, replay](docs/assets/redthread-banner.png) -->
+![RedThread banner: closed-loop LLM red-teaming, attack, judge, defend, replay](docs/assets/redthread-banner.png)
 
 # RedThread
 
