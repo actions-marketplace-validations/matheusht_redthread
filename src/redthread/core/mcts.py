@@ -119,7 +119,7 @@ class MCTSAttack:
         if self.settings.dry_run:
             return self._dry_run_result(trace, rubric_name, start_time)
 
-        strategies = derive_strategies(persona)
+        strategies = derive_strategies(persona, use_cop=self.settings.use_cop)
         profiles = load_prompt_profiles(resolve_prompt_profiles_path(self.settings))
         mcts_profile = profiles.get("mcts", {})
         attacker_system = (

@@ -36,6 +36,7 @@ def _apply_run_overrides(
     turns: int | None,
     simulations: int | None,
     max_budget_tokens: int | None,
+    use_cop: bool,
 ) -> None:
     if target_model:
         settings.target_model = target_model
@@ -55,6 +56,8 @@ def _apply_run_overrides(
         settings.mcts_simulations = simulations
     if max_budget_tokens is not None:
         settings.mcts_max_budget_tokens = max_budget_tokens
+    if use_cop:
+        settings.use_cop = True
 
 
 def register_run_command(main: click.Group, console: Console) -> None:
@@ -81,6 +84,7 @@ def register_run_command(main: click.Group, console: Console) -> None:
     @click.option("--report-json", type=click.Path(dir_okay=False), default=None, help="Write guide-style operator report as JSON")
     @click.option("--report-dir", type=click.Path(file_okay=False), default=None, help="Write standard campaign report directory")
     @click.option("--include-internal-sidecars", is_flag=True, default=False, hidden=True, help="Expose adaptive-learning sidecars in the report manifest")
+    @click.option("--cop", is_flag=True, default=False, help="Enable CoP (Composition of Principles) strategy generation — composes triggers instead of atomic strategies")
     @click.option("--show-research", is_flag=True, is_eager=True, expose_value=False, callback=show_research_help, help="Show hidden research controls and exit")
     def run(
         objective: str,
@@ -105,6 +109,7 @@ def register_run_command(main: click.Group, console: Console) -> None:
         report_json: str | None,
         report_dir: str | None,
         include_internal_sidecars: bool,
+        cop: bool,
     ) -> None:
         """Execute a red-team campaign against a target LLM."""
         setup_logging(console, verbose)
@@ -120,6 +125,7 @@ def register_run_command(main: click.Group, console: Console) -> None:
             turns,
             simulations,
             max_budget_tokens,
+            cop,
         )
         run_objective = objective
         benchmark_context = None
