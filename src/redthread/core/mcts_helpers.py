@@ -56,16 +56,21 @@ TRIGGER_STRATEGY_MAP: dict[str, list[str]] = {
 }
 
 
-def derive_strategies(persona: Persona) -> list[str]:
+def derive_strategies(persona: Persona, use_cop: bool = False) -> list[str]:
     """Return persona-coherent attack strategies for MCTS expansion.
 
     Priority order:
       1. persona.allowed_strategies (set by PersonaGenerator — richest)
-      2. TRIGGER_STRATEGY_MAP derivation from persona.psychological_triggers
-      3. Generic fallback (should never be reached with valid personas)
+      2. CoP composition when use_cop=True (generates ~3-5 composite strategies)
+      3. TRIGGER_STRATEGY_MAP derivation from persona.psychological_triggers
+      4. Generic fallback (should never be reached with valid personas)
     """
     if persona.allowed_strategies:
         return persona.allowed_strategies
+
+    if use_cop:
+        from redthread.core.cop import generate_cop_strategies
+        return generate_cop_strategies(persona)
 
     strategies: list[str] = []
     for trigger in persona.psychological_triggers:

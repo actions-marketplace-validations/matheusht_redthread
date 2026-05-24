@@ -161,7 +161,7 @@ class CrescendoAttack:
         # Narrative adaptation layer
         narrative_state = NarrativeState()
         narrative_policy = NarrativeAdaptationPolicy(
-            strategies=derive_strategies(persona),
+            strategies=derive_strategies(persona, use_cop=self.settings.use_cop),
         ) if self.settings.narrative_adaptation_enabled else None
 
         for turn_num in range(1, self.settings.crescendo_max_turns + 1):

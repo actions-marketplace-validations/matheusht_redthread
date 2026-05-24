@@ -55,6 +55,8 @@ class AlgorithmBudgetSettings:
     mcts_strategy_count: int = Field(default=3)
     mcts_max_budget_tokens: int = Field(default=500_000)
 
+    use_cop: bool = Field(default=False)
+
 
 class RuntimeStorageSettings:
     """Runtime, persistence, and containment settings."""
