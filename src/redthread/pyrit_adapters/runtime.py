@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from pyrit.models.message import Message as PyritMessage
     from pyrit.models.message_piece import MessagePiece as PyritMessagePiece
     from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
+    from pyrit.prompt_target.common.target_capabilities import TargetCapabilities as PyritTargetCapabilities
     from pyrit.prompt_target.openai.openai_chat_target import (
         OpenAIChatTarget as PyritOpenAIChatTarget,
     )
@@ -22,6 +23,7 @@ else:
     PyritMessage = Any
     PyritMessagePiece = Any
     PyritOpenAIChatTarget = Any
+    PyritTargetCapabilities = Any
 
 _pyrit_memory_initialized = False
 
@@ -32,6 +34,12 @@ def import_pyrit_runtime() -> tuple[type[PyritMessage], type[PyritMessagePiece],
     from pyrit.prompt_target import OpenAIChatTarget
 
     return Message, MessagePiece, OpenAIChatTarget
+
+
+def import_pyrit_target_capabilities() -> type[PyritTargetCapabilities]:
+    from pyrit.prompt_target.common.target_capabilities import TargetCapabilities
+
+    return TargetCapabilities
 
 
 def ensure_pyrit_memory_initialized(db_dir: Path | None = None) -> None:
@@ -66,6 +74,7 @@ def _build_pyrit_target(
         is_new_model = any(model.startswith(prefix) for prefix in ("o1", "o3", "gpt-5"))
         kwargs: dict[str, Any] = {
             "model_name": model,
+            "underlying_model": model,
             "endpoint": "https://api.openai.com/v1",
             "api_key": api_key,
         }
@@ -79,6 +88,7 @@ def _build_pyrit_target(
             openai_chat_target_cls(**kwargs),
         )
     if backend == TargetBackend.LLAMA_CPP:
+        target_capabilities_cls = import_pyrit_target_capabilities()
         return cast(
             PromptChatTarget,
             openai_chat_target_cls(
@@ -86,6 +96,10 @@ def _build_pyrit_target(
                 endpoint=f"{base_url.rstrip('/')}/v1",
                 api_key="llama-cpp",
                 max_tokens=max_tokens,
+                custom_capabilities=target_capabilities_cls(
+                    supports_multi_turn=True,
+                    supports_multi_message_pieces=True,
+                ),
             ),
         )
     raise ValueError(f"Unsupported backend: {backend}")
@@ -103,6 +117,7 @@ def _build_ollama_target(
         extra_headers["ngrok-skip-browser-warning"] = "true"
     if "pinggy" in normalized_url:
         extra_headers["x-pinggy-no-screen"] = "true"
+    target_capabilities_cls = import_pyrit_target_capabilities()
     return cast(
         PromptChatTarget,
         openai_chat_target_cls(
@@ -111,5 +126,9 @@ def _build_ollama_target(
             api_key="ollama",
             max_tokens=max_tokens,
             headers=json.dumps(extra_headers) if extra_headers else None,
+            custom_capabilities=target_capabilities_cls(
+                supports_multi_turn=True,
+                supports_multi_message_pieces=True,
+            ),
         ),
     )

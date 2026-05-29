@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PyRIT Capability Gates Implementation Notes</title><style>body{font:16px/1.55 system-ui,-apple-system,Segoe UI,Arial;margin:32px;max-width:980px;background:#0b1020;color:#edf2ff}h1,h2{color:#7dd3fc}code{background:#111a32;border:1px solid #2a385f;border-radius:6px;padding:2px 5px}li{margin:.35rem 0}.muted{color:#a9b6d8}.ok{color:#86efac}.warn{color:#fde68a}</style></head>
+<body>
+<h1>PyRIT capability gates implementation notes</h1>
+<p class="muted">Running notes for Phase 1–6 implementation.</p>
+<h2>Status</h2>
+<ul>
+<li class="ok">Implemented Phase 1: RedThread-owned capability contract in <code>src/redthread/pyrit_adapters/capabilities.py</code>.</li>
+<li class="ok">Implemented Phase 2: adapter preflight gate in <code>RedThreadTarget.send()</code>.</li>
+<li class="ok">Implemented Phase 3: target construction now exposes more honest capabilities.</li>
+<li class="ok">Implemented Phase 4: unsupported capability failures are execution-record metadata only.</li>
+<li class="ok">Implemented Phase 5: focused and full regression sweeps passed.</li>
+<li class="ok">Implemented Phase 6 as planning only: converter runtime behavior remains deferred; see <code>docs/research/pyrit-text-converter-allowlist-plan.md</code>.</li>
+</ul>
+<h2>Questions answered during implementation</h2>
+<ul>
+<li><strong>Does any current JudgeAgent path request PyRIT JSON mode?</strong> No. <code>src/redthread/evaluation/judge.py</code> sends plain text prompts through <code>send_with_execution_metadata()</code>; it parses text after the response. No current JudgeAgent call sets PyRIT JSON response metadata.</li>
+<li><strong>Do current multi-turn algorithms rely on target-side memory?</strong> No. Crescendo explicitly documents client-side history and compiles full history into each target prompt. MCTS reconstructs history from <code>MCTSTree</code> and compiles it into prompt text. PAIR/TAP also pass prior context as prompt text, not target memory state.</li>
+<li><strong>Can execution metadata carry capability preflight details without changing <code>ExecutionRecord</code>?</strong> Yes. <code>ExecutionMetadata.metadata</code> is copied into <code>ExecutionRecord.metadata</code>, so the implementation adds <code>capability_preflight</code> there and leaves <code>ExecutionRecord</code> unchanged.</li>
+</ul>
+<h2>Design decisions</h2>
+<ul>
+<li>Used <code>CapabilityRequirement</code> as an optional argument with default text-only behavior. Existing sends require no changes.</li>
+<li>Mapped PyRIT 0.12 <code>TargetCapabilities</code> into <code>RedThreadTargetCapabilities</code> to shield RedThread from PyRIT 0.13 drift.</li>
+<li>Defaulted targets without a <code>capabilities</code> attribute to text-only. This is safest for test doubles and unknown adapters.</li>
+<li>Added optional capability forwarding to shared send helpers, but only sends the keyword when explicitly provided. Existing legacy fallback behavior stays unchanged for normal calls.</li>
+<li>For OpenAI targets, <code>underlying_model=model</code> is now passed so PyRIT can apply known model capability profiles, such as GPT-4o image input support.</li>
+<li>For Ollama and llama.cpp OpenAI-compatible targets, custom capabilities are now text-chat only: multi-turn and multi-message pieces are true, JSON output is false. This avoids claiming JSON support for local OpenAI-compatible servers by default.</li>
+<li>Unsupported preflight failures include <code>failure_stage=capability_preflight</code>, <code>provider_call=false</code>, requirement metadata, and target capability snapshot.</li>
+<li>Phase 6 stayed as planning only. The converter allowlist plan rejects broad PyRIT converter adoption and allows only future deterministic text-in/text-out adapters if replay evidence proves need.</li>
+</ul>
+<h2>Deviations</h2>
+<ul>
+<li>No material spec deviations. One interpretation: the preflight gate runs after existing canary/live interception and before PyRIT message construction. This matches the planned safety order and avoids weakening containment.</li>
+<li>Phase 3 did not add settings or CLI flags. The best RedThread fit was to adjust hidden factory/runtime construction only.</li>
+<li>Phase 6 did not add converter code. The phase plan said post-gate converter planning only, so implementation means durable planning documentation, not runtime behavior.</li>
+</ul>
+<h2>Tradeoffs</h2>
+<ul>
+<li>Chose adapter-only gates instead of touching algorithms. This avoids false capability requirements for flows that already flatten history client-side.</li>
+<li>Did not add report summary output. Logs-only matches the approved answer and avoids operator noise.</li>
+<li>Chose conservative local-backend capabilities over PyRIT's OpenAIChatTarget default JSON claim. If a local server later proves JSON-mode support, add an explicit capability override in a future slice.</li>
+<li>Rejected broad converter support because it adds feature volume before proof. Future converter work should start with a tiny deterministic text-only allowlist, no CLI flags.</li>
+</ul>
+<h2>Open questions</h2>
+<ul><li>None blocking for Phase 1–6.</li></ul>
+<h2>Verification notes</h2>
+<ul>
+<li>Added capability mapping, fail-closed preflight, supported-send, multimodal block, PyRIT 0.12 version guard, runtime capability construction, and canary-before-capability tests.</li>
+<li><code>PYTHONPATH=src .venv/bin/pytest tests/test_pyrit_target_capabilities.py tests/test_pyrit_capability_version_guard.py tests/test_pyrit_runtime_capabilities.py tests/test_target_execution_records.py tests/test_canary_send_helper.py -q</code> passed.</li>
+<li><code>PYTHONPATH=src .venv/bin/pytest tests/test_canary_containment.py tests/test_live_execution_truth_smoke.py tests/test_agentic_replay_promotion.py tests/test_defense_replay_authorization.py -q</code> passed.</li>
+<li><code>PYTHONPATH=src .venv/bin/pytest -q</code> passed: 648 passed, 1 skipped.</li>
+</ul>
+</body></html>

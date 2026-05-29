@@ -4,6 +4,7 @@ from dataclasses import replace
 from typing import Any
 
 from redthread.orchestration.canary_containment import evaluate_canary_containment
+from redthread.pyrit_adapters.capabilities import CapabilityRequirement
 from redthread.pyrit_adapters.execution_records import ExecutionMetadata
 from redthread.pyrit_adapters.interceptors import LiveExecutionInterceptionError
 
@@ -14,15 +15,19 @@ async def send_with_execution_metadata(
     prompt: str,
     conversation_id: str = "",
     execution_metadata: ExecutionMetadata | None = None,
+    capability_requirement: CapabilityRequirement | None = None,
 ) -> str:
     """Call target.send() with execution metadata when the target supports it."""
     execution_metadata = _with_canary_decision(prompt, execution_metadata)
+    send_kwargs: dict[str, Any] = {
+        "prompt": prompt,
+        "conversation_id": conversation_id,
+        "execution_metadata": execution_metadata,
+    }
+    if capability_requirement is not None:
+        send_kwargs["capability_requirement"] = capability_requirement
     try:
-        return await target.send(
-            prompt=prompt,
-            conversation_id=conversation_id,
-            execution_metadata=execution_metadata,
-        )
+        return await target.send(**send_kwargs)
     except TypeError as exc:
         if "execution_metadata" not in str(exc):
             raise
@@ -35,14 +40,18 @@ async def send_with_usage_and_execution_metadata(
     prompt: str,
     conversation_id: str = "",
     execution_metadata: ExecutionMetadata | None = None,
+    capability_requirement: CapabilityRequirement | None = None,
 ) -> tuple[str, int]:
     execution_metadata = _with_canary_decision(prompt, execution_metadata)
+    send_kwargs: dict[str, Any] = {
+        "prompt": prompt,
+        "conversation_id": conversation_id,
+        "execution_metadata": execution_metadata,
+    }
+    if capability_requirement is not None:
+        send_kwargs["capability_requirement"] = capability_requirement
     try:
-        return await target.send_with_usage(
-            prompt=prompt,
-            conversation_id=conversation_id,
-            execution_metadata=execution_metadata,
-        )
+        return await target.send_with_usage(**send_kwargs)
     except TypeError as exc:
         if "execution_metadata" not in str(exc):
             raise
