@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from redthread.pyrit_adapters.capabilities import CapabilityRequirement
 from redthread.pyrit_adapters.interceptors import LiveExecutionInterceptionError
 from redthread.pyrit_adapters.targets import ExecutionMetadata, send_with_execution_metadata
 
@@ -22,6 +23,26 @@ async def test_send_helper_blocks_metadata_only_canary_before_legacy_fallback() 
                 evidence_class="live_attack",
                 metadata={"lineage": {"canary_tags": ["CANARY_EXT_TOOL_01"]}},
             ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_send_helper_blocks_canary_before_capability_forwarding() -> None:
+    class CapabilityAwareTarget:
+        async def send(self, **kwargs: object) -> str:
+            raise AssertionError("target send must not run after canary block")
+
+    with pytest.raises(LiveExecutionInterceptionError):
+        await send_with_execution_metadata(
+            CapabilityAwareTarget(),
+            prompt="plain prompt",
+            execution_metadata=ExecutionMetadata(
+                seam="attack.target",
+                role="attack_worker",
+                evidence_class="live_attack",
+                metadata={"lineage": {"canary_tags": ["CANARY_EXT_TOOL_01"]}},
+            ),
+            capability_requirement=CapabilityRequirement(requires_json_output=True),
         )
 
 

@@ -6,6 +6,12 @@ from uuid import uuid4
 
 from redthread.config.settings import RedThreadSettings, TargetBackend
 from redthread.orchestration.canary_containment import evaluate_canary_containment
+from redthread.pyrit_adapters.capabilities import (
+    CapabilityRequirement,
+    UnsupportedTargetCapabilityError,
+    check_requirement,
+    from_pyrit_target,
+)
 from redthread.pyrit_adapters.execution_context import get_execution_recorder
 from redthread.pyrit_adapters.execution_records import (
     ExecutionMetadata,
@@ -33,7 +39,6 @@ class RedThreadTarget:
         self._target = pyrit_target
         self.model_name = model_name
         self._execution_recorder = execution_recorder
-
     @classmethod
     def from_settings(
         cls,
@@ -50,20 +55,25 @@ class RedThreadTarget:
             api_key=settings.openai_api_key,
         )
         return cls(pyrit_target=pyrit_target, model_name=model, execution_recorder=execution_recorder)
-
     async def send(
         self,
         prompt: str,
         conversation_id: str = "",
         execution_metadata: ExecutionMetadata | None = None,
+        capability_requirement: CapabilityRequirement | None = None,
     ) -> str:
         conversation_id = conversation_id or execution_metadata_id(execution_metadata)
         if not conversation_id:
             conversation_id = str(uuid4())
-
         try:
             execution_metadata = self._apply_canary_containment(prompt, execution_metadata)
             maybe_intercept_live_execution(execution_metadata)
+            execution_metadata, capability_error = self._apply_capability_preflight(
+                execution_metadata,
+                capability_requirement,
+            )
+            if capability_error is not None:
+                raise capability_error
             message_cls, message_piece_cls, _ = import_pyrit_runtime()
             piece = message_piece_cls(
                 role="user",
@@ -81,23 +91,26 @@ class RedThreadTarget:
                 error=f"{type(exc).__name__}: {exc}",
             )
             raise
-
         self._record_execution(
             conversation_id=conversation_id,
             execution_metadata=execution_metadata,
             success=True,
         )
         return response
-
     async def send_with_usage(
         self,
         prompt: str,
         conversation_id: str = "",
         execution_metadata: ExecutionMetadata | None = None,
+        capability_requirement: CapabilityRequirement | None = None,
     ) -> tuple[str, int]:
-        response = await self.send(prompt, conversation_id, execution_metadata=execution_metadata)
+        response = await self.send(
+            prompt,
+            conversation_id,
+            execution_metadata=execution_metadata,
+            capability_requirement=capability_requirement,
+        )
         return response, (len(prompt) + len(response)) // 4
-
     def _apply_canary_containment(
         self,
         prompt: str,
@@ -121,14 +134,35 @@ class RedThreadTarget:
         if decision.blocked:
             raise RuntimeError(decision.reason)
         return updated
+    def _apply_capability_preflight(
+        self,
+        execution_metadata: ExecutionMetadata | None,
+        requirement: CapabilityRequirement | None,
+    ) -> tuple[ExecutionMetadata | None, UnsupportedTargetCapabilityError | None]:
+        capabilities = from_pyrit_target(self._target)
+        check = check_requirement(capabilities, requirement)
+        if check.supported:
+            return execution_metadata, None
 
+        detail = {
+            **check.as_metadata(),
+            "failure_stage": "capability_preflight",
+            "provider_call": False,
+            "requirement": (requirement or CapabilityRequirement()).as_metadata(),
+            "target_capabilities": capabilities.as_metadata(),
+        }
+        if execution_metadata is not None:
+            execution_metadata = replace(
+                execution_metadata,
+                metadata={**dict(execution_metadata.metadata), "capability_preflight": detail},
+            )
+        return execution_metadata, UnsupportedTargetCapabilityError(check.reason)
     def close(self) -> None:
         if hasattr(self._target, "dispose_db_engine"):
             try:
                 self._target.dispose_db_engine()  # type: ignore[attr-defined]
             except Exception:
                 pass
-
     def _record_execution(
         self,
         *,
@@ -150,12 +184,10 @@ class RedThreadTarget:
             )
         )
 
-
 def execution_metadata_id(execution_metadata: ExecutionMetadata | None) -> str:
     if execution_metadata is None or execution_metadata.conversation_id is None:
         return ""
     return execution_metadata.conversation_id
-
 
 def _extract_response_text(response_messages: Sequence[PyritMessage]) -> str:
     if not response_messages:
