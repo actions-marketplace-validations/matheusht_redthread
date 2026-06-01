@@ -6,13 +6,13 @@ from uuid import uuid4
 
 from redthread.config.settings import RedThreadSettings, TargetBackend
 from redthread.orchestration.canary_containment import evaluate_canary_containment
-from redthread.pyrit_adapters.execution_context import get_execution_recorder
 from redthread.pyrit_adapters.capabilities import (
     CapabilityRequirement,
     UnsupportedTargetCapabilityError,
     check_requirement,
     from_pyrit_target,
 )
+from redthread.pyrit_adapters.execution_context import get_execution_recorder
 from redthread.pyrit_adapters.execution_records import (
     ExecutionMetadata,
     ExecutionRecorder,
@@ -25,6 +25,7 @@ from redthread.pyrit_adapters.runtime import (
     _build_pyrit_target,
     import_pyrit_runtime,
 )
+
 
 class RedThreadTarget:
     """Thin async wrapper around a PyRIT PromptChatTarget."""

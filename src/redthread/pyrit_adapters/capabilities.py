@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 _TEXT_MODALITY = frozenset({"text"})
 _TEXT_MODALITIES = frozenset({_TEXT_MODALITY})
@@ -138,10 +139,10 @@ def _normalize_modalities(value: object) -> frozenset[frozenset[str]]:
     if value is None:
         return _TEXT_MODALITIES
     normalized: set[frozenset[str]] = set()
-    for combo in value:  # type: ignore[union-attr]
+    for combo in cast(Iterable[object], value):
         if isinstance(combo, str):
             normalized.add(frozenset({combo}))
-        else:
+        elif isinstance(combo, Iterable):
             normalized.add(frozenset(str(item) for item in combo))
     return frozenset(normalized) or _TEXT_MODALITIES
 

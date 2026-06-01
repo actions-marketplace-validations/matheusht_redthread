@@ -14,7 +14,9 @@ if TYPE_CHECKING:
     from pyrit.models.message import Message as PyritMessage
     from pyrit.models.message_piece import MessagePiece as PyritMessagePiece
     from pyrit.prompt_target.common.prompt_chat_target import PromptChatTarget
-    from pyrit.prompt_target.common.target_capabilities import TargetCapabilities as PyritTargetCapabilities
+    from pyrit.prompt_target.common.target_capabilities import (
+        TargetCapabilities as PyritTargetCapabilities,
+    )
     from pyrit.prompt_target.openai.openai_chat_target import (
         OpenAIChatTarget as PyritOpenAIChatTarget,
     )

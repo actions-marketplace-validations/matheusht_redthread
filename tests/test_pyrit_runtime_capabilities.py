@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import pytest
+
 from redthread.config.settings import TargetBackend
 from redthread.pyrit_adapters.runtime import _build_pyrit_target
 
@@ -28,7 +30,7 @@ class FakeOpenAIChatTarget:
         )
 
 
-def _patch_runtime(monkeypatch) -> None:
+def _patch_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("redthread.pyrit_adapters.runtime.ensure_pyrit_memory_initialized", lambda: None)
     monkeypatch.setattr(
         "redthread.pyrit_adapters.runtime.import_pyrit_runtime",
@@ -40,7 +42,9 @@ def _patch_runtime(monkeypatch) -> None:
     )
 
 
-def test_openai_target_passes_underlying_model_for_known_capability_lookup(monkeypatch) -> None:
+def test_openai_target_passes_underlying_model_for_known_capability_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_runtime(monkeypatch)
 
     target = _build_pyrit_target(
@@ -54,7 +58,9 @@ def test_openai_target_passes_underlying_model_for_known_capability_lookup(monke
     assert "custom_capabilities" not in target.kwargs
 
 
-def test_ollama_target_uses_text_chat_capabilities_without_json_claim(monkeypatch) -> None:
+def test_ollama_target_uses_text_chat_capabilities_without_json_claim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_runtime(monkeypatch)
 
     target = _build_pyrit_target(
@@ -68,7 +74,9 @@ def test_ollama_target_uses_text_chat_capabilities_without_json_claim(monkeypatc
     assert target.kwargs["custom_capabilities"].supports_json_output is False
 
 
-def test_llama_cpp_target_uses_text_chat_capabilities_without_json_claim(monkeypatch) -> None:
+def test_llama_cpp_target_uses_text_chat_capabilities_without_json_claim(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     _patch_runtime(monkeypatch)
 
     target = _build_pyrit_target(
