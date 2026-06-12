@@ -50,6 +50,11 @@ dev = [
     "ruff>=0.4.0",
     "types-pyyaml",
 ]
+# GEPA reflective prompt optimizer (Phase 1+ autoresearch lane). Pinned and optional:
+# the adapter imports it lazily so core installs never require it.
+research-gepa = [
+    "gepa==0.1.1",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/redthread"]
