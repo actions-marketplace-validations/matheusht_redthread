@@ -51,9 +51,11 @@ dev = [
     "types-pyyaml",
 ]
 # GEPA reflective prompt optimizer (Phase 1+ autoresearch lane). Pinned and optional:
-# the adapter imports it lazily so core installs never require it.
+# the adapter imports it lazily so core installs never require it. litellm is gepa's
+# driver for string reflection_lm ids (e.g. "ollama/<model>" or "gpt-4o").
 research-gepa = [
     "gepa==0.1.1",
+    "litellm>=1.0",
 ]
 
 [tool.hatch.build.targets.wheel]
