@@ -9,7 +9,12 @@ from redthread.config.settings import AlgorithmType, RedThreadSettings
 from redthread.engine import RedThreadEngine
 from redthread.models import CampaignConfig
 from redthread.research.checkpoints import CheckpointStore
-from redthread.research.models import BatchCheckpoint, ResearchBatchSummary, ResearchObjective
+from redthread.research.models import (
+    BatchCheckpoint,
+    ObjectiveResult,
+    ResearchBatchSummary,
+    ResearchObjective,
+)
 
 
 async def run_objective(
@@ -72,6 +77,7 @@ async def run_batch(
     objective_slugs = list(checkpoint.completed_objectives)
     asr_values = list(checkpoint.asr_values)
     score_values = list(checkpoint.score_values)
+    objective_results = list(checkpoint.objective_results)
     confirmed_total = checkpoint.confirmed_total
     near_miss_total = checkpoint.near_miss_total
     result_total = checkpoint.result_total
@@ -89,6 +95,16 @@ async def run_batch(
         objective_slugs.append(objective.slug)
         asr_values.append(asr)
         score_values.append(avg_score)
+        objective_results.append(
+            ObjectiveResult(
+                slug=objective.slug,
+                campaign_id=campaign_id,
+                attack_success_rate=asr,
+                average_score=avg_score,
+                confirmed_jailbreaks=confirmed,
+                near_misses=near_misses,
+            )
+        )
         confirmed_total += confirmed
         near_miss_total += near_misses
         result_total += objective.personas
@@ -96,6 +112,7 @@ async def run_batch(
         checkpoint.campaign_ids = campaign_ids
         checkpoint.asr_values = asr_values
         checkpoint.score_values = score_values
+        checkpoint.objective_results = objective_results
         checkpoint.confirmed_total = confirmed_total
         checkpoint.near_miss_total = near_miss_total
         checkpoint.result_total = result_total
@@ -119,6 +136,7 @@ async def run_batch(
         average_asr=average_asr,
         average_score=average_score,
         composite_score=composite_score,
+        objective_results=objective_results,
         started_at=started_at,
         completed_at=datetime.now(timezone.utc),
     )

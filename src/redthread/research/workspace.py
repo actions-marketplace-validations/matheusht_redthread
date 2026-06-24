@@ -35,6 +35,9 @@ class ResearchWorkspace:
         self.heartbeat_path = self.runtime_dir / "heartbeat.json"
         self.session_lock_path = self.runtime_dir / "session_lock.json"
         self.failure_log_path = self.runtime_dir / "failure_log.jsonl"
+        self.gepa_dir = self.runtime_dir / "gepa"
+        self.gepa_candidates_dir = self.gepa_dir / "candidates"
+        self.gepa_ledger_path = self.gepa_dir / "ledger.jsonl"
 
     def ensure_layout(self) -> None:
         """Create tracked templates and migrate legacy runtime files if present."""
@@ -45,6 +48,7 @@ class ResearchWorkspace:
         self.checkpoints_dir.mkdir(parents=True, exist_ok=True)
         self.promotions_dir.mkdir(parents=True, exist_ok=True)
         self.research_memory_dir.mkdir(parents=True, exist_ok=True)
+        self.gepa_candidates_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.template_config_path.exists():
             legacy_config = self.base_dir / "config.json"
@@ -86,6 +90,22 @@ class ResearchWorkspace:
         if self.runtime_dir.exists():
             shutil.rmtree(self.runtime_dir)
         self.ensure_layout()
+
+    def gepa_snapshot_path(self, candidate_id: str) -> Path:
+        """Return the prompt-profile snapshot path for one GEPA candidate.
+
+        Snapshots are always confined to the research runtime dir; the GEPA shadow
+        harness must never write a candidate snapshot to production prompt profiles.
+        """
+        return self.gepa_candidates_dir / candidate_id / "prompt_profiles.json"
+
+    def gepa_candidate_path(self, candidate_id: str) -> Path:
+        """Return the metadata path for one GEPA candidate."""
+        return self.gepa_candidates_dir / candidate_id / "candidate.json"
+
+    def gepa_side_info_path(self, candidate_id: str) -> Path:
+        """Return the redacted side-info path for one GEPA candidate."""
+        return self.gepa_candidates_dir / candidate_id / "gepa_side_info.json"
 
     def proposal_path(self, proposal_id: str) -> Path:
         """Return the artifact path for one proposal."""

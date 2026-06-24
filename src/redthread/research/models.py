@@ -57,6 +57,24 @@ class ResearchLaneConfig(BaseModel):
     source: str
     objective_slugs: list[str] = Field(default_factory=list)
 
+class ObjectiveResult(BaseModel):
+    """Per-objective metrics from a single research campaign.
+
+    These values are already computed by ``run_objective`` but were historically
+    collapsed into batch averages and discarded. Preserving them per objective is
+    what enables Pareto selection over candidates (GEPA Phase 2). This model stays
+    GEPA-agnostic: it carries only raw RedThread metrics; any normalization into an
+    optimizer scalar lives in ``research.gepa_score``.
+    """
+
+    slug: str
+    campaign_id: str
+    attack_success_rate: float
+    average_score: float
+    confirmed_jailbreaks: int
+    near_misses: int
+
+
 class ResearchBatchSummary(BaseModel):
     """Aggregate metrics from a research batch."""
 
@@ -72,6 +90,7 @@ class ResearchBatchSummary(BaseModel):
     average_asr: float
     average_score: float
     composite_score: float
+    objective_results: list[ObjectiveResult] = Field(default_factory=list)
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -148,6 +167,7 @@ class BatchCheckpoint(BaseModel):
     campaign_ids: list[str] = Field(default_factory=list)
     asr_values: list[float] = Field(default_factory=list)
     score_values: list[float] = Field(default_factory=list)
+    objective_results: list[ObjectiveResult] = Field(default_factory=list)
     confirmed_total: int = 0
     near_miss_total: int = 0
     result_total: int = 0
