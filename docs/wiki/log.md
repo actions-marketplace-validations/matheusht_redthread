@@ -1,5 +1,11 @@
 # Wiki Log
 
+## [2026-08-09] research | documented GEPA adoption lane and aligned stale repo-state docs
+- created `docs/wiki/research/gepa-adoption.md` covering the hidden reflective prompt-optimizer lane (Phase 0 shadow harness through Phase 4 source spike) and its allowlist/redaction/control-gate/authority-ladder contracts
+- linked the new page from `docs/wiki/index.md`
+- added the GEPA research lane (R0–R4) to `docs/PHASE_REGISTRY.md`, the phase-status authority
+- rewrote `docs/current_repo_state.md` to reflect the merged GEPA Phase 0–2 state (PR #20) and the uncommitted Phase 1/3/4 working-tree work, replacing the stale 2026-05-21 CoP-era snapshot
+
 ## [2026-05-18] implementation | completed Phase 13 runtime active-guardrail audit proof
 - added structured active guardrail record lookup in `MemoryIndex`
 - added non-secret `GuardrailLoader` audit events with action, count, trace IDs, clause hashes, target model, prompt hash, and source

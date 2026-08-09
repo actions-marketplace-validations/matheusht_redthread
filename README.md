@@ -329,6 +329,20 @@ Both lanes are designed around conservative controls:
 
 The goal is not uncontrolled recursive self-modification. The goal is safer research loops with inspectable artifacts.
 
+### GEPA research lane (hidden, experimental)
+
+RedThread also runs a hidden, fully contained reflective prompt-optimizer research
+lane (arXiv 2507.19457). It is additive and does not change the default operator path:
+
+- candidate fields are allowlisted to a small set of attacker prompt-profile fields,
+- the only channel to a reflection model is a redacted, transcript-free side-info payload,
+- the control lane is a fail-closed gate, never a reward bonus,
+- optimizer acceptance never implies RedThread promotion.
+
+`gepa` and `litellm` are optional (`pip install 'redthread[research-gepa]'`). The lane
+is surfaced only through hidden `redthread research gepa-*` commands. See
+`docs/PHASE_REGISTRY.md` and `docs/wiki/research/gepa-adoption.md` for details.
+
 ---
 
 ## Documentation map
@@ -341,6 +355,7 @@ Start here:
 - `docs/DEFENSE_PIPELINE.md` — defense synthesis and replay pipeline.
 - `docs/AGENTIC_SECURITY_RUNTIME.md` — Phase 8 runtime integration.
 - `docs/ANTI_HALLUCINATION_SOP.md` — evaluation and grounding discipline.
+- `docs/PHASE_REGISTRY.md` — also tracks the GEPA research lane (Phases 0–4) and its safety contracts.
 
 Knowledge system:
 
