@@ -62,11 +62,7 @@ def render_campaign_results(console: Console, result: CampaignResult) -> int:
     asr_color = "red" if result.attack_success_rate > 0.3 else "green"
     console.print(
         Panel(
-            f"[bold]Campaign Results[/bold]\n\n"
-            f"  Attack Success Rate (ASR): [{asr_color}]{result.attack_success_rate:.1%}[/{asr_color}]\n"
-            f"  Average G-Eval Score:      {result.average_score:.2f}/5.0\n"
-            f"  Total Runs:                {len(result.results)}\n"
-            f"  Transcript:                logs/{result.id}.jsonl",
+            "\n".join(_campaign_result_lines(result, asr_color)),
             border_style=asr_color,
         )
     )
@@ -96,3 +92,55 @@ def render_campaign_results(console: Console, result: CampaignResult) -> int:
         console.print(table)
 
     return 0 if result.attack_success_rate == 0.0 else 1
+
+
+def _campaign_result_lines(result: CampaignResult, asr_color: str) -> list[str]:
+    metadata = result.metadata
+    runtime_mode = str(metadata.get("runtime_mode", "unknown"))
+    degraded = bool(metadata.get("degraded_runtime", False))
+    manifest = metadata.get("operator_report_manifest")
+    artifact_dir = manifest.get("artifact_dir", "") if isinstance(manifest, dict) else ""
+    evidence = _format_evidence_labels(manifest)
+    uncertainty = _format_evidence_uncertainty(manifest)
+    status = "DEGRADED" if degraded else "clean"
+    lines = [
+        "[bold]Campaign Results[/bold]",
+        "",
+        f"  Campaign ID:               {result.id}",
+        f"  Runtime Mode:              {runtime_mode}",
+        f"  Runtime Status:            {status}",
+        f"  Attack Success Rate (ASR): [{asr_color}]{result.attack_success_rate:.1%}[/{asr_color}]",
+        f"  Average G-Eval Score:      {result.average_score:.2f}/5.0",
+        f"  Total Runs:                {len(result.results)}",
+    ]
+    lines.append(f"  Evidence:                  {evidence or 'no labeled evidence modes'}")
+    if uncertainty:
+        lines.append(f"  Evidence Warning:          {uncertainty}")
+    if artifact_dir:
+        lines.append(f"  Report:                    {artifact_dir}")
+    lines.append(f"  Transcript:                logs/{result.id}.jsonl")
+    return lines
+
+
+def _format_evidence_labels(manifest: object) -> str:
+    if not isinstance(manifest, dict):
+        return ""
+    labels = manifest.get("evidence_labels", {})
+    counts = manifest.get("evidence_mode_counts", {})
+    if not isinstance(labels, dict) or not labels:
+        return ""
+    if not isinstance(counts, dict):
+        counts = {}
+    return "; ".join(
+        f"{key}={counts.get(key, '?')}: {value}"
+        for key, value in sorted(labels.items())
+    )
+
+
+def _format_evidence_uncertainty(manifest: object) -> str:
+    if not isinstance(manifest, dict):
+        return ""
+    notes = manifest.get("evidence_uncertainty", [])
+    if not isinstance(notes, list) or not notes:
+        return ""
+    return " | ".join(str(note) for note in notes[:2])

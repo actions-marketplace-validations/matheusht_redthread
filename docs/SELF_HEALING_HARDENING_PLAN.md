@@ -13,7 +13,7 @@ Move RedThread from "can generate defenses" to "can validate and promote defense
 - expand beyond the minimal benign pack over time
 
 ### 2. Defense-specific reporting
-- emit structured validation reports per deployment
+- emit structured validation reports per defense candidate
 - attach replay suite identity, failed cases, and utility summaries
 - preserve report data through persistence and promotion artifacts
 
@@ -35,7 +35,7 @@ Move RedThread from "can generate defenses" to "can validate and promote defense
 
 ### Milestone B
 - structured defense validation report
-- deployment persistence for report data
+- candidate-record persistence for report data
 - CLI/reporting surfacing
 
 ### Milestone C
@@ -75,7 +75,7 @@ Move RedThread from "can generate defenses" to "can validate and promote defense
 10. added a latest-promotion inspection CLI path so operators can inspect evidence without reading raw JSON
 
 ### Next
-- add CLI inspection for individual deployment validation reports, not just promotion summaries
+- add CLI inspection for individual defense-candidate validation reports, not just promotion summaries
 - split protected replay/report/gate surfaces from mutable defense-prompt surfaces in more explicit docs
 - decide whether replay-suite expansion should come from curated fixtures under `tests/` or dedicated runtime fixture artifacts
 

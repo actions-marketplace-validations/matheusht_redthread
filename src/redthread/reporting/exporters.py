@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from redthread.reporting.models import FindingReport, OperatorArtifactBundle
+from redthread.reporting.proof_readout import proof_readout_lines
 from redthread.reporting.public_artifacts import prompt_safe_json
 
 
@@ -18,6 +19,7 @@ def operator_artifacts_to_markdown(bundle: OperatorArtifactBundle) -> str:
     lines = [
         f"# RedThread Operator Report — {bundle.campaign_id}",
         "",
+        *proof_readout_lines(bundle),
         "## Rules of Engagement Summary",
         f"- Objective: {bundle.rules_of_engagement.objective}",
         f"- Scope targets: {_join(bundle.rules_of_engagement.scope.target_ids)}",
@@ -32,6 +34,7 @@ def operator_artifacts_to_markdown(bundle: OperatorArtifactBundle) -> str:
         f"- Detector hint limitation: {bundle.vulnerability_report.detector_hint_limitations}",
         "",
     ]
+    lines.extend(_evidence_lines(bundle))
     lines.extend(_finding_lines(bundle.vulnerability_report.findings))
     lines.extend(_verdict_lines(bundle))
     lines.extend(_security_card_lines(bundle))
@@ -56,6 +59,20 @@ def write_operator_artifacts(
     if json_path is not None:
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(operator_artifacts_to_json(bundle), encoding="utf-8")
+
+
+def _evidence_lines(bundle: OperatorArtifactBundle) -> list[str]:
+    lines = ["## Evidence & Uncertainty"]
+    if bundle.evidence_mode_counts:
+        for label, count in sorted(bundle.evidence_mode_counts.items()):
+            description = bundle.evidence_labels.get(label, label)
+            lines.append(f"- {label}: {count} ({description})")
+    else:
+        lines.append("- No labeled evidence modes reported.")
+    if bundle.evidence_uncertainty:
+        lines.append("- Uncertainty:")
+        lines.extend(f"  - {note}" for note in bundle.evidence_uncertainty)
+    return [*lines, ""]
 
 
 def _finding_lines(findings: list[FindingReport]) -> list[str]:

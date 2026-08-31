@@ -31,10 +31,10 @@ def _hero_proof() -> dict[str, object]:
     return {
         "schema_version": "redthread.hero_proof.v1",
         "campaign_id": "campaign-demo",
-        "metrics": {"confirmed_findings": 1, "validated_controls": 1},
+        "metrics": {"confirmed_findings": 1, "validated_candidates": 1},
         "ci_regression": {"regression_case_count": 1},
         "stages": [
-            {"name": "defense_control", "status": "validated", "evidence_label": "sealed"},
+            {"name": "defense_candidate", "status": "validated_candidate", "evidence_label": "sealed"},
             {"name": "ci_regression", "status": "ready", "evidence_label": "sealed"},
         ],
     }
@@ -48,7 +48,7 @@ def test_competitive_demo_artifact_shows_weak_to_confirmed_flow() -> None:
     assert [step["step"] for step in artifact["flow"]] == [
         "weak_scanner_signal",
         "redthread_confirmation",
-        "validated_defense",
+        "validated_defense_candidate",
         "regression_artifact",
     ]
     assert artifact["flow"][0]["evidence_label"] == "imported_weak_evidence"

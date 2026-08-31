@@ -49,6 +49,26 @@ def test_promote_requires_explicit_phase3_accept(tmp_path: Path) -> None:
         raise AssertionError("expected promotion to require explicit phase3 accept")
 
 
+def test_promotion_marks_live_replay_record_promotable_then_active(tmp_path: Path) -> None:
+    workspace = ResearchWorkspace(tmp_path)
+    workspace.ensure_layout()
+    settings = RedThreadSettings().model_copy(update={"memory_dir": tmp_path / "memory"})
+    append_research_record(workspace, "trace-live")
+    payload = proposal_payload(workspace, eligible_trace_ids=["trace-live"])
+    workspace.proposal_path("proposal-123").write_text(json.dumps(payload), encoding="utf-8")
+
+    promotion = ResearchPromotionManager(settings, tmp_path).promote_latest()
+    validation = json.loads(Path(promotion.validation_ref).read_text(encoding="utf-8"))
+    promoted = MemoryIndex(settings).iter_deployments()[0]
+
+    assert validation["promotion_state_by_trace"] == {"trace-live": "promotable_defense"}
+    assert validation["promotion_evidence_mode_by_trace"] == {"trace-live": "live_replay"}
+    assert promoted.metadata["guardrail_status"] == "active_guardrail"
+    assert promoted.metadata["promotion_status"] == "active_guardrail"
+    assert promoted.metadata["active_guardrail"] is True
+    assert promoted.metadata["deployed"] is True
+
+
 def test_promote_fails_when_revalidation_fails_and_leaves_production_untouched(tmp_path: Path) -> None:
     workspace = ResearchWorkspace(tmp_path)
     workspace.ensure_layout()
@@ -61,6 +81,56 @@ def test_promote_fails_when_revalidation_fails_and_leaves_production_untouched(t
 
     assert promotion.validation_status == "failed"
     assert MemoryIndex(settings).known_trace_ids() == []
+
+
+def test_sealed_dry_run_defense_cannot_promote(tmp_path: Path) -> None:
+    workspace = ResearchWorkspace(tmp_path)
+    workspace.ensure_layout()
+    settings = RedThreadSettings().model_copy(update={"memory_dir": tmp_path / "memory"})
+    append_research_record(
+        workspace,
+        "trace-sealed",
+        validation_mode="dry_run",
+        evidence_mode="sealed_dry_run_replay",
+    )
+    payload = proposal_payload(workspace, eligible_trace_ids=["trace-sealed"])
+    workspace.proposal_path("proposal-123").write_text(json.dumps(payload), encoding="utf-8")
+
+    promotion = ResearchPromotionManager(settings, tmp_path).promote_latest()
+    validation = json.loads(Path(promotion.validation_ref).read_text(encoding="utf-8"))
+
+    assert promotion.validation_status == "failed"
+    assert promotion.promoted_trace_ids == []
+    assert MemoryIndex(settings).known_trace_ids() == []
+    assert validation["promotion_state_by_trace"] == {"trace-sealed": "validated_candidate"}
+    assert validation["weak_evidence_trace_ids"] == ["trace-sealed"]
+    assert "evidence_mode_not_promotable:sealed_dry_run_replay" in validation["defense_utility_gate"]["trace-sealed"]
+
+
+def test_live_validation_error_fails_closed(tmp_path: Path) -> None:
+    workspace = ResearchWorkspace(tmp_path)
+    workspace.ensure_layout()
+    settings = RedThreadSettings().model_copy(update={"memory_dir": tmp_path / "memory"})
+    append_research_record(
+        workspace,
+        "trace-error",
+        validation_mode="live",
+        evidence_mode="live_validation_error",
+        include_replay_cases=False,
+    )
+    payload = proposal_payload(workspace, eligible_trace_ids=["trace-error"])
+    workspace.proposal_path("proposal-123").write_text(json.dumps(payload), encoding="utf-8")
+
+    promotion = ResearchPromotionManager(settings, tmp_path).promote_latest()
+    validation = json.loads(Path(promotion.validation_ref).read_text(encoding="utf-8"))
+
+    assert promotion.validation_status == "failed"
+    assert promotion.promoted_trace_ids == []
+    assert MemoryIndex(settings).known_trace_ids() == []
+    assert validation["promotion_state_by_trace"] == {"trace-error": "validated_candidate"}
+    assert validation["weak_evidence_trace_ids"] == ["trace-error"]
+    assert "evidence_mode_not_promotable:live_validation_error" in validation["defense_utility_gate"]["trace-error"]
+    assert "missing_replay_case_evidence" in validation["defense_utility_gate"]["trace-error"]
 
 
 def test_promotion_reconstructs_from_manifest_and_artifacts_only(tmp_path: Path) -> None:

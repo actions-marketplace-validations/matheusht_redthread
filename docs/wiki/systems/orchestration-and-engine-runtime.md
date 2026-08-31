@@ -10,14 +10,16 @@ source_of_truth:
   - src/redthread/engine.py
   - src/redthread/runtime_modes.py
   - src/redthread/orchestration/supervisor.py
+  - src/redthread/orchestration/supervisor_graph.py
+  - src/redthread/orchestration/supervisor_nodes.py
   - src/redthread/orchestration/runtime_summary.py
   - src/redthread/orchestration/graphs/attack_graph.py
   - src/redthread/orchestration/graphs/judge_graph.py
   - src/redthread/orchestration/graphs/defense_graph.py
   - tests/test_runtime_truth.py
   - tests/test_supervisor.py
-updated_by: codex
-updated_at: 2026-04-18
+updated_by: pi
+updated_at: 2026-05-18
 ---
 
 # Orchestration and Engine Runtime
@@ -31,6 +33,8 @@ This page covers the runtime path from CLI to transcript:
 - runtime-mode labels and degraded-runtime reporting
 
 ## Runtime flow
+
+As of the simplicity Phase 3 pass, `src/redthread/orchestration/supervisor.py` is a compatibility facade. The runtime flow is implemented through smaller state, routing, node, finalization, and graph-construction modules.
 
 Current runtime flow is:
 1. CLI builds `CampaignConfig`
@@ -87,7 +91,8 @@ The runtime now records a compact summary for operators:
 - `judge_worker_failures`
 - `defense_worker_total`
 - `defense_worker_failures`
-- `defense_deployments`
+- `defense_validated_candidates`
+- `defense_deployments` (deprecated alias for `defense_validated_candidates`)
 - `degraded_runtime`
 - `error_count`
 - `error_samples`
@@ -123,7 +128,7 @@ This is important because the runtime is currently **best-effort**, not fail-clo
 ### Defense worker failure
 - worker records an error
 - campaign still finalizes
-- defense deployment count can stay below defense input count
+- validated-candidate count can stay below defense input count
 
 ## Operator surfaces
 

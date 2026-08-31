@@ -25,16 +25,44 @@
 | 8C | Deterministic Control Plane | ✅ Complete | 2026-04-16 | authorization engine, permission inheritance, least-agency presets, policy tests |
 | 8D | Canary & Runtime Containment | ✅ Complete | 2026-04-16 | canary helpers, propagation reports, runtime budget evaluation, summary extensions |
 | 8E | Replay, Promotion, and Controlled Live Adapters | ✅ Complete | 2026-04-16 | replay bundle, promotion gate, controlled live adapter wrapper, promotion tests |
+| R0–R2 | GEPA research lane (Phases 0–2) | ✅ Merged (PR #20) | 2026-06-12 | shadow harness, prompt-profile adapter, Pareto frontier |
+| R3–R4 | GEPA defense/source spikes | 🚧 Working tree | — | hidden defense/source-lane spikes, uncommitted |
 
 ## Current Direction
 
-RedThread is now in the **Phase 7 + Phase 8 era**:
+RedThread is in the **Phase 7 + Phase 8 era plus the GEPA research lane**:
 - `phase5` is the bounded offense lane
 - `phase6` is the bounded defense-prompt lane
 - `phase8` is the additive agentic-security lane
-- all three still keep explicit promotion discipline and do not replace the core orchestration stack
+- GEPA is a hidden, fully contained reflective prompt-optimizer research lane (see below)
+- all of these keep explicit promotion discipline and do not replace the core orchestration stack
 
-This means the project direction after GS-MCTS is no longer “add more jailbreak algorithms first.” The current direction is **safe self-improvement plus deterministic agentic-security validation**.
+This means the project direction after GS-MCTS is no longer “add more jailbreak algorithms first.” The current direction is **safe self-improvement plus deterministic agentic-security validation**, with any optimizer adoption staying under the hood and behind containment gates.
+
+## GEPA Research Lane (Phases 0–4)
+
+Additive, hidden, research-only. It adopts reflective prompt optimization (arXiv 2507.19457) without changing the default operator path. `gepa==0.1.1` + `litellm>=1.0` live in the optional `[research-gepa]` extra and are imported lazily.
+
+| GEPA Phase | Status | Deliverables |
+|---|---|---|
+| 0 — Shadow harness | ✅ Merged (PR #20) | `gepa_shadow.py`, `gepa_allowlist.py`, `gepa_candidate.py`, `gepa_score.py`, `gepa_side_info.py` — containment proven before a real optimizer exists |
+| 1 — Prompt-profile adapter | ✅ Adapter merged; live spike file present | `gepa_adapter.py` (RedThreadGEPAAdapter), `scripts/spikes/gepa_phase1_spike.py`, optional `gepa` dep |
+| 2 — Pareto frontier | ✅ Merged (PR #20) | `gepa_pareto.py` — per-objective specialist preservation; control axis stays a gate |
+| 3 — Defense-lane spike | 🚧 Working tree (uncommitted) | `gepa_defense_*.py` — GEPA over defense architect templates, hidden `gepa-defense-spike` CLI |
+| 4 — Source-lane spike | 🚧 Working tree (uncommitted) | `gepa_source_*.py` — GEPA selects bounded Phase 5 source mutations, hidden `gepa-source-spike` CLI |
+
+### Safety contracts that hold in every GEPA phase
+
+1. **Allowlist** — candidates may only touch `pair.system_suffix`, `tap.system_suffix`, `tap.strategies`, `crescendo.system_suffix`, `mcts.system_suffix`. Unknown keys are rejected before application.
+2. **Redaction** — `gepa_side_info` is the only channel to a reflection LM; transcripts, canaries, secrets, and emails are scrubbed and `assert_clean` fails closed.
+3. **Control gate** — the control lane is a fail-closed gate, never a reward bonus; exceeding limits zeroes the scalar and every Pareto axis.
+4. **Authority ladder** — `accepted_by_gepa`, `accepted_by_redthread_supervisor`, and promotion status stay separate; GEPA-accept never writes production state.
+5. **Budget** — live optimization requires explicit `reflection_lm` + positive `max_metric_calls`; no silent default.
+6. **Runtime confinement** — snapshots stay under `autoresearch/runtime/gepa/` and never touch production prompt profiles.
+
+CLI is hidden: `redthread research gepa-spike`, `redthread research gepa-defense-spike`, `redthread research gepa-source-spike`.
+
+See `docs/current_repo_state.md` for the merged/working-tree breakdown.
 
 ## Next Bounded Steps
 

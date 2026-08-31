@@ -1,8 +1,8 @@
 """DefenseGraph — LangGraph worker node for post-evaluation defense synthesis.
 
 Receives a judged AttackResult, passes it through the DefenseSynthesisEngine
-(Isolate → Classify → Generate → Validate → Deploy), and writes validated
-guardrail records to MEMORY.md via MemoryIndex.
+(Isolate → Classify → Generate → Validate), and writes validated candidate
+guardrail evidence to MEMORY.md via MemoryIndex.
 
 Only called for confirmed jailbreaks (is_jailbreak=True from JudgeWorker).
 """
@@ -15,6 +15,8 @@ from typing import Any, NotRequired
 
 from typing_extensions import TypedDict
 
+from redthread.core.defense_status import candidate_flags
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,16 +27,17 @@ class DefenseWorkerState(TypedDict):
 
     settings_dict: dict[str, Any]           # Serialized RedThreadSettings
     result_dict: dict[str, Any]             # Serialized (judged) AttackResult
-    defense_deployed: bool                  # True if guardrail was validated + indexed
-    guardrail_clause: str | None            # The deployed clause (if successful)
+    validated_candidate: bool              # Canonical: replay passed and candidate was indexed
+    defense_deployed: bool                  # Deprecated compat alias for validated_candidate
+    guardrail_clause: str | None            # The candidate clause (if generated)
     record_dict: NotRequired[dict[str, Any]] # Serialized GuardrailRecord
     error: str | None
 
 
 # ── Worker node function ──────────────────────────────────────────────────────
 
-async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
-    """Runs the 5-step Defense Synthesis pipeline and indexes valid guardrails.
+async def run_defense_worker(state: DefenseWorkerState) -> dict[str, Any]:
+    """Run defense synthesis and index validated candidates, not active controls.
 
     Called by the LangGraph supervisor only for confirmed jailbreaks.
     """
@@ -48,7 +51,7 @@ async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
         result = AttackResult.model_validate(state["result_dict"])
 
         logger.info(
-            "🛡️  DefenseWorker | trace=%s | synthesizing guardrail...",
+            "🛡️  DefenseWorker | trace=%s | synthesizing candidate_defense...",
             result.trace.id,
         )
 
@@ -57,15 +60,15 @@ async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
 
         if record.validation.passed:
             index = MemoryIndex(settings)
-            index.append(record)
+            index.append(record, guardrail_status="validated_candidate")
             logger.info(
-                "✅ DefenseWorker | guardrail deployed | trace=%s | category=%s",
+                "✅ DefenseWorker | validated_candidate indexed | trace=%s | category=%s",
                 record.trace_id,
                 record.classification.category,
             )
             return {
                 **state,
-                "defense_deployed": True,
+                **candidate_flags(True),
                 "guardrail_clause": record.guardrail_clause,
                 "record_dict": asdict(record),
                 "error": None,
@@ -78,7 +81,7 @@ async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
             )
             return {
                 **state,
-                "defense_deployed": False,
+                **candidate_flags(False),
                 "guardrail_clause": record.guardrail_clause,  # Still return clause for inspection
                 "record_dict": asdict(record),
                 "error": None,
@@ -88,7 +91,7 @@ async def run_defense_worker(state: DefenseWorkerState) -> DefenseWorkerState:
         logger.exception("DefenseWorker failed: %s", exc)
         return {
             **state,
-            "defense_deployed": False,
+            **candidate_flags(False),
             "guardrail_clause": None,
             "error": str(exc),
         }

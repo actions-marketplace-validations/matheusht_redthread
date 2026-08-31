@@ -7,18 +7,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from redthread.config.settings import RedThreadSettings
+from redthread.core.defense_status import active_guardrail_metadata
 from redthread.memory.index import MemoryIndex
-from redthread.research.models import (
-    PhaseThreeProposal,
+from redthread.research.models import PhaseThreeProposal
+from redthread.research.phase3 import PhaseThreeHarness
+from redthread.research.promotion_checkpointing import persist_promotion_checkpoint
+from redthread.research.promotion_models import (
     PromotionManifest,
     PromotionRecord,
     PromotionValidationResult,
-)
-from redthread.research.phase3 import PhaseThreeHarness
-from redthread.research.promotion_checkpointing import persist_promotion_checkpoint
-from redthread.research.promotion_evidence import (
-    promotion_failure_reason,
-    summarize_promotion_records,
 )
 from redthread.research.promotion_support import (
     control_limit,
@@ -27,6 +24,7 @@ from redthread.research.promotion_support import (
     promotion_id_for,
     proposal_fingerprint,
 )
+from redthread.research.promotion_validation import build_promotion_validation
 from redthread.research.workspace import ResearchWorkspace
 
 
@@ -127,51 +125,7 @@ class ResearchPromotionManager:
         if path.exists():
             return PromotionValidationResult.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
-        control = next((item for item in proposal.cycle.lane_summaries if item.lane == "control"), None)
-        control_gate_passed = bool(
-            control
-            and control.average_asr <= float(manifest.revalidation_policy["control_max_average_asr"])
-            and control.average_score <= float(manifest.revalidation_policy["control_max_average_score"])
-        )
-        lane_names = {item.lane for item in proposal.cycle.lane_summaries}
-        records = eligible_records(self.settings, self.workspace, proposal)
-        evidence_summary = summarize_promotion_records(records)
-        failure_reason = None
-        status = "validated"
-        if not proposal.accepted:
-            status = "failed"
-            failure_reason = "proposal was not accepted in the research plane"
-        elif not {"offense", "regression", "control"}.issubset(lane_names):
-            status = "failed"
-            failure_reason = "proposal artifact does not contain the full supervisor pack"
-        elif not control_gate_passed:
-            status = "failed"
-            failure_reason = "control gate failed during promotion replay"
-        elif proposal.eligible_trace_ids and len(records) != len(set(proposal.eligible_trace_ids)):
-            status = "failed"
-            failure_reason = "promotion artifacts reference missing research deployment records"
-        elif (
-            bool(manifest.revalidation_policy.get("require_defense_validation_report"))
-            and evidence_summary.missing_report_trace_ids
-        ) or evidence_summary.validation_failures_by_trace:
-            status = "failed"
-            failure_reason = promotion_failure_reason(evidence_summary)
-
-        validation = PromotionValidationResult(
-            promotion_id=manifest.promotion_id,
-            proposal_id=proposal.proposal_id,
-            replayed_cycle=proposal.cycle,
-            control_gate_passed=control_gate_passed,
-            eligible_trace_ids=sorted(records),
-            defense_report_coverage=evidence_summary.report_coverage,
-            defense_utility_gate=evidence_summary.utility_gate,
-            missing_report_trace_ids=evidence_summary.missing_report_trace_ids,
-            weak_evidence_trace_ids=evidence_summary.weak_evidence_trace_ids,
-            failed_validation_trace_ids=evidence_summary.failed_validation_trace_ids,
-            validation_failures_by_trace=evidence_summary.validation_failures_by_trace,
-            validation_status=status,
-            failure_reason=failure_reason,
-        )
+        validation = build_promotion_validation(self.settings, self.workspace, proposal, manifest)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(validation.model_dump_json(indent=2), encoding="utf-8")
         persist_promotion_checkpoint(
@@ -194,7 +148,12 @@ class ResearchPromotionManager:
             return []
         records = eligible_records(self.settings, self.workspace, proposal)
         production_index = MemoryIndex(self.settings)
-        return production_index.append_records(
-            [records[trace_id] for trace_id in validation.eligible_trace_ids if trace_id in records]
-        )
+        promotable_records = []
+        for trace_id in validation.eligible_trace_ids:
+            if trace_id not in records:
+                continue
+            record = records[trace_id]
+            record.metadata = {**record.metadata, **active_guardrail_metadata()}
+            promotable_records.append(record)
+        return production_index.append_records(promotable_records)
 

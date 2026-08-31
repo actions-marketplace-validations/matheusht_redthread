@@ -37,7 +37,7 @@ Why this wins now:
 ## Current runtime picture
 
 ### Strong parts already present
-- `DefenseSynthesisEngine` isolates, generates, validates, and builds structured deployment records
+- `DefenseSynthesisEngine` isolates, generates, validates, and builds structured defense candidate records
 - `DefenseReplayRunner` stores exploit and benign replay cases separately
 - `DefenseValidationReport` persists operator-facing replay summaries
 - promotion rejects weak evidence such as missing reports, benign regressions, missing replay-case evidence, and dry-run validation

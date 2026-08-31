@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from redthread.research.models import BatchCheckpoint, PromotionCheckpoint
+from redthread.research.models import BatchCheckpoint
+from redthread.research.promotion_models import PromotionCheckpoint
 
 
 class CheckpointStore:

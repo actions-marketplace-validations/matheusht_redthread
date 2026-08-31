@@ -1,13 +1,19 @@
 """Runtime summary helpers for orchestration truth surfaces."""
 
+from collections.abc import Mapping
 from typing import Any
 
+from redthread.core.defense_status import (
+    DEFENSE_DEPLOYMENTS_ALIAS,
+    DEFENSE_VALIDATED_CANDIDATES,
+    validated_candidate_count,
+)
 from redthread.orchestration.canary_flow import CanaryPropagationReport
 
 RuntimeSummary = dict[str, Any]
 
 
-def _build_agentic_security_summary(state: dict[str, Any]) -> dict[str, Any]:
+def _build_agentic_security_summary(state: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "action_total": state.get("agentic_action_total", 0),
         "authorization_decision_counts": state.get("authorization_decision_counts", {}),
@@ -79,7 +85,7 @@ def merge_live_canary_report(summary: RuntimeSummary, execution_records: list[An
     return merged
 
 
-def build_runtime_summary(state: dict[str, Any]) -> RuntimeSummary:
+def build_runtime_summary(state: Mapping[str, Any]) -> RuntimeSummary:
     """Build a compact operator-facing runtime summary from supervisor state."""
     attack_worker_total = state.get("attack_worker_total", 0)
     attack_worker_failures = state.get("attack_worker_failures", 0)
@@ -87,7 +93,7 @@ def build_runtime_summary(state: dict[str, Any]) -> RuntimeSummary:
     judge_worker_failures = state.get("judge_worker_failures", 0)
     defense_worker_total = state.get("defense_worker_total", 0)
     defense_worker_failures = state.get("defense_worker_failures", 0)
-    defense_deployments = state.get("defense_deployments", 0)
+    defense_validated_candidates = validated_candidate_count(state)
     error_count = len(state.get("errors", []))
 
     degraded_runtime = any(
@@ -106,7 +112,8 @@ def build_runtime_summary(state: dict[str, Any]) -> RuntimeSummary:
         "judge_worker_failures": judge_worker_failures,
         "defense_worker_total": defense_worker_total,
         "defense_worker_failures": defense_worker_failures,
-        "defense_deployments": defense_deployments,
+        DEFENSE_VALIDATED_CANDIDATES: defense_validated_candidates,
+        DEFENSE_DEPLOYMENTS_ALIAS: defense_validated_candidates,
         "degraded_runtime": degraded_runtime,
         "error_count": error_count,
         "error_samples": state.get("errors", [])[:3],

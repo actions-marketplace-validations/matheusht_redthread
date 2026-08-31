@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from redthread.research.checkpoints import load_promotion_checkpoint, save_promotion_checkpoint
-from redthread.research.models import PhaseThreeProposal, PromotionCheckpoint
+from redthread.research.models import PhaseThreeProposal
+from redthread.research.promotion_models import PromotionCheckpoint
 from redthread.research.workspace import ResearchWorkspace
 
 

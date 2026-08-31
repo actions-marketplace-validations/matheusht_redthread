@@ -2,10 +2,12 @@
 .env
 .env.*
 !.env.example
-
+graphify-out/
 CODEX.md
 *.html
 .gitignore
+.codex
+.clarity_protocol/
 
 # Campaign / runtime artifacts (potentially sensitive)
 logs/
@@ -89,3 +91,10 @@ Thumbs.db
 
 # Pi project-local packages (if using pi install -l)
 .pi/npm/
+
+# Clarity Agent
+/.clarity-agent
+/clarity
+/clarity.ps1
+/clarity.bat
+/.clarity-protocol/transcripts/

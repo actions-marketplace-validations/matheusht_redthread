@@ -18,6 +18,7 @@ This is the primary content map for the RedThread wiki.
 - [decisions/adopt-mempalace-plus-llm-wiki.md](decisions/adopt-mempalace-plus-llm-wiki.md) — Why RedThread uses MemPalace for retrieval and a markdown wiki for synthesis.
 - [decisions/jailbreak-benchmark-material-vault.md](decisions/jailbreak-benchmark-material-vault.md) — Why raw jailbreak benchmark material lives outside git behind reviewed manifests, hashes, approved-target gates, engine-calculated inventory readiness, metadata-only run hints, and prompt-safe regression handoff artifacts.
 - [decisions/hide-learning-complexity-from-operator.md](decisions/hide-learning-complexity-from-operator.md) — Why RedThread keeps adaptive learning under the hood, reduces operator friction, and requires CTO review before adding user-facing complexity.
+- [decisions/simplicity-spine-and-golden-path.md](decisions/simplicity-spine-and-golden-path.md) — Why RedThread simplifies around one attack → judge → defend → replay → promotion-evidence spine, one golden CLI path, strict evidence honesty, and validated-candidate versus active-guardrail boundaries.
 - [decisions/heuristics-ab-experiment-no-merge.md](decisions/heuristics-ab-experiment-no-merge.md) — Why the hidden hand-written routing heuristics A/B experiment failed and should not be merged or enabled by default.
 
 ## Entities
@@ -77,7 +78,9 @@ This is the primary content map for the RedThread wiki.
 - [research/tool-technology-slice-18-persona-weighting-cli-reuse.md](research/tool-technology-slice-18-persona-weighting-cli-reuse.md) — Exact Slice 18 plan and RPI findings for reusing safe adaptive persona weighting plan artifacts through `redthread run`.
 - [research/tool-technology-testing-commands-and-takeaways.md](research/tool-technology-testing-commands-and-takeaways.md) — Durable test commands, dry-run smoke analysis, and key takeaways for the Tool Technology Incorporation track.
 - [research/bounded-autoresearch.md](research/bounded-autoresearch.md) — Current synthesis of bounded offense and defense mutation lanes.
+- [research/gepa-adoption.md](research/gepa-adoption.md) — Hidden, fully contained reflective prompt-optimizer adoption lane (Phases 0–4) and its allowlist/redaction/control-gate safety contracts.
 - [research/current-hardening-tracks.md](research/current-hardening-tracks.md) — Current ordered execution plans for verification, governance, runtime truth, and defense confidence hardening.
+- [research/redthread-simplicity-implementation-plan.md](research/redthread-simplicity-implementation-plan.md) — Completed simplicity implementation record covering the golden path, evidence vocabulary, supervisor extraction, attack registry, defense boundary, settings profiles, operator proof UX, promotion hardening, promotion proof readouts, and runtime active-guardrail audit proof.
 - [research/next-deep-dive-subsystem.md](research/next-deep-dive-subsystem.md) — Recommendation for the next subsystem RedThread should investigate deeply after the current hardening tranche.
 - [research/evaluation-truth-hardening-plan.md](research/evaluation-truth-hardening-plan.md) — Research-backed execution plan for the judge and evaluation deep dive.
 - [research/defense-confidence-hardening-plan.md](research/defense-confidence-hardening-plan.md) — Research-backed execution plan for the defense synthesis, validation, and promotion deep dive.

@@ -23,10 +23,13 @@ def write_campaign_report_artifacts(
     bundle: OperatorArtifactBundle,
     report_dir: Path,
     *,
+    run_mode_subdir: str = "",
     include_internal_sidecars: bool = True,
 ) -> OperatorReportManifest:
     """Write a standard campaign report directory and return its manifest."""
     campaign_dir = report_dir / bundle.campaign_id
+    if run_mode_subdir:
+        campaign_dir = campaign_dir / run_mode_subdir
     markdown_path = campaign_dir / REPORT_MARKDOWN_NAME
     json_path = campaign_dir / REPORT_JSON_NAME
     manifest_path = campaign_dir / REPORT_MANIFEST_NAME
@@ -57,6 +60,8 @@ def write_campaign_report_artifacts(
         persona_outcome_telemetry=str(persona_outcomes_path) if persona_outcomes_path else "",
         adaptive_persona_weighting_plan=str(weighting_plan_path) if weighting_plan_path else "",
         evidence_labels=bundle.evidence_labels,
+        evidence_mode_counts=bundle.evidence_mode_counts,
+        evidence_uncertainty=bundle.evidence_uncertainty,
         bridge_prep_notes=[
             "Stable RedThread operator report artifacts are ready for future import/export mappers.",
             "External evidence must remain weak evidence until JudgeAgent confirms a finding.",

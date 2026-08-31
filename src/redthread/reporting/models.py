@@ -112,6 +112,8 @@ class OperatorArtifactBundle(BaseModel):
     regression_pack_summary: RegressionPackSummary
     limitations: list[str]
     evidence_labels: dict[str, str] = Field(default_factory=dict)
+    evidence_mode_counts: dict[str, int] = Field(default_factory=dict)
+    evidence_uncertainty: list[str] = Field(default_factory=list)
     hero_proof: dict[str, Any] = Field(default_factory=dict)
     ci_regression: dict[str, Any] = Field(default_factory=dict)
     persona_outcome_telemetry: dict[str, Any] = Field(default_factory=dict)
@@ -131,4 +133,6 @@ class OperatorReportManifest(BaseModel):
     persona_outcome_telemetry: str = ""
     adaptive_persona_weighting_plan: str = ""
     evidence_labels: dict[str, str] = Field(default_factory=dict)
+    evidence_mode_counts: dict[str, int] = Field(default_factory=dict)
+    evidence_uncertainty: list[str] = Field(default_factory=list)
     bridge_prep_notes: list[str] = Field(default_factory=list)

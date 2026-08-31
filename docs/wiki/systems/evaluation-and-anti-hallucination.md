@@ -11,8 +11,8 @@ source_of_truth:
   - src/redthread/evaluation/judge.py
   - src/redthread/evaluation/pipeline.py
   - tests/test_golden_dataset.py
-updated_by: codex
-updated_at: 2026-04-18
+updated_by: pi
+updated_at: 2026-05-18
 ---
 
 # Evaluation and Anti-Hallucination
@@ -97,11 +97,18 @@ RedThread now distinguishes these evaluation evidence modes:
 
 ## Operator surface
 
-`redthread test golden` now surfaces:
+`redthread test golden` surfaces:
 - aggregate evidence counts for sealed / live / fallback
 - whether the run used mixed evidence modes
 - whether the run is degraded by live-judge fallback
 - per-trace evidence mode in the trace table
+
+As of the simplicity Phase 2 pass, normal campaign reports and manifests also surface:
+- `evidence_labels`
+- `evidence_mode_counts`
+- `evidence_uncertainty`
+
+Markdown reports include an Evidence & Uncertainty section, and terminal summaries include evidence counts and warnings when a manifest is available.
 
 This matters because the main operator golden path should not hide fallback semantics behind a green score.
 

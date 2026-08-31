@@ -7,6 +7,12 @@ from pathlib import Path
 
 from redthread.config.settings import RedThreadSettings
 from redthread.memory.index import MemoryIndex
+from redthread.research.promotion_readout import (
+    PROMOTION_LADDER,
+    promotion_outcome_line,
+    state_count_line,
+    trace_state_lines,
+)
 from redthread.research.workspace import ResearchWorkspace
 
 
@@ -22,10 +28,21 @@ def render_latest_promotion(settings: RedThreadSettings, root: Path) -> str:
     validation_payload = json.loads(Path(result_payload["validation_ref"]).read_text(encoding="utf-8"))
     weak_records = validation_payload.get("validation_failures_by_trace", {})
     coverage = validation_payload.get("defense_report_coverage", {})
+    state_by_trace = validation_payload.get("promotion_state_by_trace", {})
+    evidence_by_trace = validation_payload.get("promotion_evidence_mode_by_trace", {})
+    promoted_trace_ids = result_payload.get("promoted_trace_ids", [])
     lines = [
         f"  Promotion: {result_payload['promotion_id']}",
         f"  Proposal:  {result_payload['proposal_id']}",
         f"  Status:    {result_payload['validation_status']}",
+        "  Outcome:   "
+        + promotion_outcome_line(
+            result_payload["validation_status"],
+            int(result_payload.get("promoted_deployments", 0)),
+            bool(result_payload.get("dry_run", False)),
+        ),
+        f"  Ladder:    {PROMOTION_LADDER}",
+        f"  States:    {state_count_line(state_by_trace)}",
         f"  Reports:   {len(result_payload.get('defense_report_refs', []))}",
         f"  Eligible:  {', '.join(validation_payload.get('eligible_trace_ids', [])) or 'none'}",
         f"  Coverage:  {', '.join(f'{trace}={state}' for trace, state in sorted(coverage.items())) or 'none'}",
@@ -41,6 +58,9 @@ def render_latest_promotion(settings: RedThreadSettings, root: Path) -> str:
     if weak_records:
         rendered = '; '.join(f"{trace_id} -> {', '.join(failures)}" for trace_id, failures in sorted(weak_records.items()))
         lines.append(f"  Fail map:  {rendered}")
+    trace_state_summary = trace_state_lines(state_by_trace, evidence_by_trace, promoted_trace_ids)
+    if trace_state_summary:
+        lines.extend(["  Trace states:", *trace_state_summary])
 
     trace_details = _render_trace_details(settings, workspace, validation_payload)
     if trace_details:

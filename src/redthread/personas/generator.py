@@ -172,7 +172,7 @@ class PersonaGenerator:
                     allowed_strategies=strategies,
                 )
                 if not candidate.allowed_strategies:
-                    candidate.allowed_strategies = derive_strategies(candidate)
+                    candidate.allowed_strategies = derive_strategies(candidate, use_cop=self.settings.use_cop)
                 return repair_persona_strategy_coverage(candidate, prompting_layer_profile)
             except (ValueError, KeyError) as exc:
                 logger.warning(
